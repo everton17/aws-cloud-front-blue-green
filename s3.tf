@@ -42,3 +42,42 @@ resource "aws_s3_bucket_website_configuration" "this" {
   }
 }
 
+resource "aws_s3_bucket_public_access_block" "this" {
+  for_each = {
+    for k, v in local.buckets : k => v if v.website == true
+  }
+
+  bucket = aws_s3_bucket.this[each.key].id
+
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}
+
+
+data "aws_iam_policy_document" "allow_public_access_site_buckets" {
+  for_each = {
+    for k, v in local.buckets : k => v if v.website == true
+  }
+
+  statement {
+    sid    = "PublicReadGetObject"
+    effect = "Allow"
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.this[each.key].arn}/*"]
+  }
+}
+
+resource "aws_s3_bucket_policy" "allow_public_access" {
+  for_each = {
+    for k, v in local.buckets : k => v if v.website == true
+  }
+
+  bucket = aws_s3_bucket.this[each.key].id
+  policy = data.aws_iam_policy_document.allow_public_access_site_buckets[each.key].json
+}
