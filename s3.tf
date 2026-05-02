@@ -41,3 +41,4 @@ resource "aws_s3_bucket_website_configuration" "this" {
     key = each.value.error_document
   }
 }
+
