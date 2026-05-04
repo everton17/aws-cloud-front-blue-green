@@ -4,8 +4,15 @@ resource "aws_cloudfront_distribution" "this" {
   dynamic "origin" {
     for_each = local.buckets_website
     content {
-      domain_name = aws_s3_bucket.this[origin.key].bucket_regional_domain_name
+      domain_name = aws_s3_bucket_website_configuration.this[origin.key].website_endpoint
       origin_id   = "${origin.value.name}-origin"
+
+      custom_origin_config {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "http-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
     }
   }
 
