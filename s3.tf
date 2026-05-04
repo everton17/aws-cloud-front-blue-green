@@ -27,9 +27,7 @@ resource "aws_s3_bucket_versioning" "this" {
 }
 
 resource "aws_s3_bucket_website_configuration" "this" {
-  for_each = {
-    for k, v in local.buckets : k => v if v.website == true
-  }
+  for_each = local.buckets_website
 
   bucket = aws_s3_bucket.this[each.key].id
 
@@ -43,9 +41,7 @@ resource "aws_s3_bucket_website_configuration" "this" {
 }
 
 resource "aws_s3_bucket_public_access_block" "this" {
-  for_each = {
-    for k, v in local.buckets : k => v if v.website == true
-  }
+  for_each = local.buckets_website
 
   bucket = aws_s3_bucket.this[each.key].id
 
@@ -57,9 +53,7 @@ resource "aws_s3_bucket_public_access_block" "this" {
 
 
 data "aws_iam_policy_document" "allow_public_access_site_buckets" {
-  for_each = {
-    for k, v in local.buckets : k => v if v.website == true
-  }
+  for_each = local.buckets_website
 
   statement {
     sid    = "PublicReadGetObject"
@@ -74,9 +68,7 @@ data "aws_iam_policy_document" "allow_public_access_site_buckets" {
 }
 
 resource "aws_s3_bucket_policy" "allow_public_access" {
-  for_each = {
-    for k, v in local.buckets : k => v if v.website == true
-  }
+  for_each = local.buckets_website
 
   bucket = aws_s3_bucket.this[each.key].id
   policy = data.aws_iam_policy_document.allow_public_access_site_buckets[each.key].json
