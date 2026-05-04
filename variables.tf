@@ -19,8 +19,9 @@ variable "cloudfront" {
     default_root_object = string
 
     default_cache_behavior = object({
-      allowed_methods = list(string)
-      cached_methods  = list(string)
+      allowed_methods  = list(string)
+      cached_methods   = list(string)
+      target_origin_id = optional(string)
       forwarded_values = object({
         query_string = bool
         cookies = object({
@@ -34,9 +35,10 @@ variable "cloudfront" {
     })
 
     ordered_cache_behaviors = optional(list(object({
-      path_pattern    = string
-      allowed_methods = list(string)
-      cached_methods  = list(string)
+      path_pattern              = string
+      allowed_methods           = list(string)
+      cached_methods            = list(string)
+      optional_target_origin_id = optional(string)
       forwarded_values = object({
         query_string = bool
         cookies = object({
