@@ -57,6 +57,13 @@ variable "cloudfront" {
       })
     })
 
+    custom_error_response = list(object({
+      error_code            = number
+      response_page_path    = string
+      response_code         = number
+      error_caching_min_ttl = number
+    }))
+
     viewer_certificate = object({
       cloudfront_default_certificate = optional(bool, true)
       acm_certificate_arn            = optional(string)

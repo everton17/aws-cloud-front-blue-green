@@ -67,6 +67,16 @@ resource "aws_cloudfront_distribution" "this" {
     }
   }
 
+  dynamic "custom_error_response" {
+    for_each = var.cloudfront.custom_error_response
+    content {
+      error_code            = custom_error_response.value.error_code
+      response_page_path    = custom_error_response.value.response_page_path
+      response_code         = custom_error_response.value.response_code
+      error_caching_min_ttl = custom_error_response.value.error_caching_min_ttl
+    }
+  }
+
   tags = var.cloudfront.tags
 
   viewer_certificate {
