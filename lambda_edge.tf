@@ -1,6 +1,6 @@
 data "aws_caller_identity" "current" {}
 
-# Gera o .zip da Lambda a partir do arquivo renderizado
+# Generate zip to lambda@edge from template file
 data "archive_file" "lambda_zip" {
   count       = var.lambda_edge.enabled ? 1 : 0
   type        = "zip"
@@ -60,14 +60,13 @@ resource "aws_iam_role_policy" "lambda_edge_ssm" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        # Lambda@Edge grava logs na região do Edge, por isso o wildcard de região
+        # Lambda@Edge send logs to CloudWatch Logs in the us-east-1 region.
         Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/us-east-1.${aws_lambda_function.edge_rollback[count.index].function_name}:*"
       }
     ]
   })
 }
 
-#Lambda@Edge — obrigatoriamente us-east-1
 resource "aws_lambda_function" "edge_rollback" {
   count = var.lambda_edge.enabled ? 1 : 0
 
@@ -77,7 +76,7 @@ resource "aws_lambda_function" "edge_rollback" {
   role             = aws_iam_role.lambda_edge[count.index].arn
   handler          = var.lambda_edge.handler
   runtime          = var.lambda_edge.runtime
-  publish          = true # obrigatório — CloudFront exige versão numerada
+  publish          = true
 
   lifecycle {
     create_before_destroy = true
@@ -93,6 +92,6 @@ resource "aws_ssm_parameter" "rollback" {
   value = "false"
 
   lifecycle {
-    ignore_changes = [value] # evita o Terraform sobrescrever mudanças manuais
+    ignore_changes = [value] # evict changes to the parameter value to avoid unnecessary updates to the Lambda function
   }
 }

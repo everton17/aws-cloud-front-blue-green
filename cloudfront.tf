@@ -32,7 +32,7 @@ resource "aws_cloudfront_distribution" "this" {
       }
     }
 
-    # Lambda@Edge associada ao Origin Request
+    # Lambda@Edge association to Origin Request
     dynamic "lambda_function_association" {
       for_each = var.lambda_edge.enabled ? var.lambda_edge.associations : []
 
@@ -65,7 +65,7 @@ resource "aws_cloudfront_distribution" "this" {
         }
       }
 
-      # Lambda@Edge associada ao Origin Request
+      # Lambda@Edge association to Origin Request
       dynamic "lambda_function_association" {
         for_each = var.lambda_edge.enabled ? var.lambda_edge.associations : []
 
