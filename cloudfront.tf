@@ -32,6 +32,17 @@ resource "aws_cloudfront_distribution" "this" {
       }
     }
 
+    # Lambda@Edge association to Origin Request
+    dynamic "lambda_function_association" {
+      for_each = var.lambda_edge.enabled ? var.lambda_edge.associations : []
+
+      content {
+        event_type   = lambda_function_association.value.event_type
+        lambda_arn   = aws_lambda_function.edge_rollback[0].qualified_arn
+        include_body = lambda_function_association.value.include_body
+      }
+    }
+
     viewer_protocol_policy = var.cloudfront.default_cache_behavior.viewer_protocol_policy
     min_ttl                = var.cloudfront.default_cache_behavior.min_ttl
     default_ttl            = var.cloudfront.default_cache_behavior.default_ttl
@@ -51,6 +62,17 @@ resource "aws_cloudfront_distribution" "this" {
 
         cookies {
           forward = ordered_cache_behavior.value.forwarded_values.cookies.forward
+        }
+      }
+
+      # Lambda@Edge association to Origin Request
+      dynamic "lambda_function_association" {
+        for_each = var.lambda_edge.enabled ? var.lambda_edge.associations : []
+
+        content {
+          event_type   = lambda_function_association.value.event_type
+          lambda_arn   = aws_lambda_function.edge_rollback[0].qualified_arn
+          include_body = lambda_function_association.value.include_body
         }
       }
 
