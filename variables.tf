@@ -4,12 +4,13 @@ variable "region" {
 
 variable "buckets" {
   type = list(object({
-    name           = string
-    force_destroy  = bool
-    versioning     = bool
-    website        = bool
-    index_document = optional(string, "index.html")
-    error_document = optional(string, "error.html")
+    name             = string
+    force_destroy    = bool
+    versioning       = bool
+    website          = bool
+    principal_bucket = bool
+    index_document   = optional(string, "index.html")
+    error_document   = optional(string, "error.html")
   }))
 }
 
@@ -74,3 +75,21 @@ variable "cloudfront" {
   })
 }
 
+variable "lambda_edge" {
+  type = object({
+    enabled              = optional(bool, true)
+    function_name        = optional(string, "cloudfront-rollback-origin-request")
+    parameter_store_name = optional(string, "/Lambda/CF/Rollback")
+    handler              = optional(string, "index.handler")
+    runtime              = optional(string, "nodejs20.x")
+    associations = optional(list(object({
+      event_type   = string
+      include_body = optional(bool, false)
+      })), [
+      {
+        event_type   = "origin-request"
+        include_body = false
+      }
+    ])
+  })
+}
