@@ -17,7 +17,7 @@ variable "buckets" {
 variable "cloudfront" {
   type = object({
     enabled             = bool
-    default_root_object = string
+    default_root_object = optional(string, null)
 
     default_cache_behavior = object({
       allowed_methods  = list(string)
