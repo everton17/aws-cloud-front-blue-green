@@ -122,6 +122,4 @@ resource "aws_cloudfront_distribution" "this" {
     acm_certificate_arn            = var.cloudfront.viewer_certificate.cloudfront_default_certificate ? null : var.cloudfront.viewer_certificate.acm_certificate_arn
     ssl_support_method             = var.cloudfront.viewer_certificate.cloudfront_default_certificate ? null : var.cloudfront.viewer_certificate.ssl_support_method
   }
-
-  depends_on = [aws_s3_bucket.logging]
 }
