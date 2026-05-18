@@ -18,6 +18,21 @@ variable "cloudfront" {
   type = object({
     enabled             = bool
     default_root_object = optional(string, null)
+    comment             = optional(string, null)
+    is_ipv6_enabled     = optional(bool, false)
+    http_version        = optional(string, "http2")
+    price_class         = optional(string, "PriceClass_All")
+    web_acl_id          = optional(string, null)
+    retain_on_delete    = optional(bool, false)
+    wait_for_deployment = optional(bool, true)
+    aliases             = optional(list(string), [])
+
+    logging_config = optional(object({
+      bucket          = string
+      force_destroy   = optional(bool, false)
+      prefix          = optional(string, "")
+      include_cookies = optional(bool, false)
+    }))
 
     default_cache_behavior = object({
       allowed_methods  = list(string)

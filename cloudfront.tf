@@ -1,5 +1,15 @@
 resource "aws_cloudfront_distribution" "this" {
 
+  enabled             = var.cloudfront.enabled
+  default_root_object = var.cloudfront.default_root_object
+  comment             = var.cloudfront.comment
+  is_ipv6_enabled     = var.cloudfront.is_ipv6_enabled
+  http_version        = var.cloudfront.http_version
+  price_class         = var.cloudfront.price_class
+  web_acl_id          = var.cloudfront.web_acl_id
+  retain_on_delete    = var.cloudfront.retain_on_delete
+  wait_for_deployment = var.cloudfront.wait_for_deployment
+  aliases             = var.cloudfront.aliases
 
   dynamic "origin" {
     for_each = local.buckets_website
@@ -15,9 +25,6 @@ resource "aws_cloudfront_distribution" "this" {
       }
     }
   }
-
-  enabled             = var.cloudfront.enabled
-  default_root_object = var.cloudfront.default_root_object
 
   default_cache_behavior {
     allowed_methods  = var.cloudfront.default_cache_behavior.allowed_methods
@@ -96,6 +103,15 @@ resource "aws_cloudfront_distribution" "this" {
       response_page_path    = custom_error_response.value.response_page_path
       response_code         = custom_error_response.value.response_code
       error_caching_min_ttl = custom_error_response.value.error_caching_min_ttl
+    }
+  }
+
+  dynamic "logging_config" {
+    for_each = var.cloudfront.logging_config != null ? [var.cloudfront.logging_config] : []
+    content {
+      bucket          = aws_s3_bucket.logging[0].bucket_domain_name
+      include_cookies = var.cloudfront.logging_config.include_cookies
+      prefix          = var.cloudfront.logging_config.prefix
     }
   }
 
