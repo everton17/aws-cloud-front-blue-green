@@ -73,3 +73,54 @@ resource "aws_s3_bucket_policy" "allow_public_access" {
   bucket = aws_s3_bucket.this[each.key].id
   policy = data.aws_iam_policy_document.allow_public_access_site_buckets[each.key].json
 }
+
+resource "aws_s3_bucket" "logging" {
+  count = var.cloudfront.logging_config != null ? 1 : 0
+
+  bucket        = "${var.cloudfront.logging_config.bucket}-cf-distribution-logs"
+  force_destroy = var.cloudfront.logging_config.force_destroy
+
+  tags = {
+    Name = "${var.cloudfront.logging_config.bucket}-cf-distribution-logs"
+  }
+}
+
+
+data "aws_iam_policy_document" "s3_logging_bucket_policy" {
+  count = var.cloudfront.logging_config != null ? 1 : 0
+
+  statement {
+    sid    = "AllowCloudFrontToWriteLogs"
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.logging[0].arn}/*"]
+  }
+}
+
+resource "aws_s3_bucket_policy" "logging_bucket_policy" {
+  count = var.cloudfront.logging_config != null ? 1 : 0
+
+  bucket = aws_s3_bucket.logging[0].id
+  policy = data.aws_iam_policy_document.s3_logging_bucket_policy[0].json
+}
+
+resource "aws_s3_bucket_ownership_controls" "logs" {
+  count = var.cloudfront.logging_config != null ? 1 : 0
+
+  bucket = aws_s3_bucket.logging[0].id
+
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+resource "aws_s3_bucket_acl" "logs" {
+  depends_on = [aws_s3_bucket_ownership_controls.logs]
+
+  bucket = aws_s3_bucket.logging[0].id
+  acl    = "log-delivery-write"
+}

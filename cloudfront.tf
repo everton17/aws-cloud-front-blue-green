@@ -1,5 +1,15 @@
 resource "aws_cloudfront_distribution" "this" {
 
+  enabled             = var.cloudfront.enabled
+  default_root_object = var.cloudfront.default_root_object
+  comment             = var.cloudfront.comment
+  is_ipv6_enabled     = var.cloudfront.is_ipv6_enabled
+  http_version        = var.cloudfront.http_version
+  price_class         = var.cloudfront.price_class
+  web_acl_id          = var.cloudfront.web_acl_id
+  retain_on_delete    = var.cloudfront.retain_on_delete
+  wait_for_deployment = var.cloudfront.wait_for_deployment
+  aliases             = var.cloudfront.aliases
 
   dynamic "origin" {
     for_each = local.buckets_website
@@ -15,9 +25,6 @@ resource "aws_cloudfront_distribution" "this" {
       }
     }
   }
-
-  enabled             = var.cloudfront.enabled
-  default_root_object = var.cloudfront.default_root_object
 
   default_cache_behavior {
     allowed_methods  = var.cloudfront.default_cache_behavior.allowed_methods
@@ -99,6 +106,15 @@ resource "aws_cloudfront_distribution" "this" {
     }
   }
 
+  dynamic "logging_config" {
+    for_each = var.cloudfront.logging_config != null ? [var.cloudfront.logging_config] : []
+    content {
+      bucket          = aws_s3_bucket.logging[0].bucket_domain_name
+      include_cookies = var.cloudfront.logging_config.include_cookies
+      prefix          = var.cloudfront.logging_config.prefix
+    }
+  }
+
   tags = var.cloudfront.tags
 
   viewer_certificate {
@@ -106,4 +122,6 @@ resource "aws_cloudfront_distribution" "this" {
     acm_certificate_arn            = var.cloudfront.viewer_certificate.cloudfront_default_certificate ? null : var.cloudfront.viewer_certificate.acm_certificate_arn
     ssl_support_method             = var.cloudfront.viewer_certificate.cloudfront_default_certificate ? null : var.cloudfront.viewer_certificate.ssl_support_method
   }
+
+  depends_on = [aws_s3_bucket.logging]
 }
