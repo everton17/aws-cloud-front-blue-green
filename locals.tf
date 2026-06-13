@@ -18,4 +18,6 @@ locals {
   versioning_buckets = {
     for k, v in local.buckets : k => v if v.principal_bucket == false && v.website == false
   }
+
+  viewer_certificate_arn = var.acm.create ? aws_acm_certificate.this.arn : var.cloudfront.viewer_certificate.acm_certificate_arn
 }
