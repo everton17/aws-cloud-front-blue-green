@@ -119,7 +119,7 @@ resource "aws_cloudfront_distribution" "this" {
 
   viewer_certificate {
     cloudfront_default_certificate = var.cloudfront.viewer_certificate.cloudfront_default_certificate
-    acm_certificate_arn            = var.cloudfront.viewer_certificate.cloudfront_default_certificate ? null : var.cloudfront.viewer_certificate.acm_certificate_arn
+    acm_certificate_arn            = var.cloudfront.viewer_certificate.cloudfront_default_certificate ? null : local.viewer_certificate_arn
     ssl_support_method             = var.cloudfront.viewer_certificate.cloudfront_default_certificate ? null : var.cloudfront.viewer_certificate.ssl_support_method
   }
 }

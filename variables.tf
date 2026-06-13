@@ -108,3 +108,29 @@ variable "lambda_edge" {
     ])
   })
 }
+
+variable "route53" {
+  type = object({
+    enabled      = optional(bool, false)
+    domain       = optional(string, null)
+    private_zone = optional(bool, false)
+  })
+
+  validation {
+    condition     = !var.route53.enabled || (var.route53.domain != null && trimspace(var.route53.domain) != "")
+    error_message = "When 'route53.enabled' is true, the 'route53.domain' field must be set and cannot be empty."
+  }
+}
+
+variable "acm" {
+  type = object({
+    create            = optional(bool, true)
+    wildcard          = optional(bool, false)
+    validation_method = optional(string, "DNS")
+  })
+
+  validation {
+    condition     = var.cloudfront.viewer_certificate.cloudfront_default_certificate != var.acm.create
+    error_message = "'cloudfront.viewer_certificate.cloudfront_default_certificate' and 'acm.create' can't have the same value. If you want to use a custom domain, set 'cloudfront.viewer_certificate.cloudfront_default_certificate' to false."
+  }
+}

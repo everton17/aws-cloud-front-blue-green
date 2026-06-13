@@ -1,3 +1,3 @@
-output "cloudfront_url" {
-  value = aws_cloudfront_distribution.this.domain_name
+output "cloudfront_urls" {
+  value = join(", ", concat(tolist([aws_cloudfront_distribution.this.domain_name]), tolist(aws_cloudfront_distribution.this.aliases)))
 }
