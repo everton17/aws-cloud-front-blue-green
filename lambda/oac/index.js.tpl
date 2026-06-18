@@ -6,6 +6,7 @@ const CACHE_TTL_MS = 60 * 1000;
 
 const OLD_SITE_DOMAIN = "${old_site_domain}";
 const NEW_SITE_DOMAIN = "${new_site_domain}";
+const BUCKET_REGION = "us-east-1";
 
 let cachedValue = null;
 let cacheExpiresAt = 0;
@@ -44,24 +45,22 @@ exports.handler = async (event, context, callback) => {
     } else if (rollback === "false") {
       domain = NEW_SITE_DOMAIN;
     } else {
-      console.warn("Valor inesperado no SSM:", rollback, "— usando fallback");
+      console.warn("SSM unexpected value:", rollback, "— using fallback");
       domain = NEW_SITE_DOMAIN;
     }
 
     request.origin = {
-      custom: {
+      s3: {
         domainName: domain,
-        port: 80,
-        protocol: "http",
+        region: BUCKET_REGION,
+        authMethod: "none",
         path: "",
-        sslProtocols: ["TLSv1.2"],
-        readTimeout: 30,
-        keepaliveTimeout: 5,
         customHeaders: {},
       },
     };
 
     request.headers["host"] = [{ key: "Host", value: domain }];
+
     callback(null, request);
 
   } catch (err) {
