@@ -40,7 +40,7 @@ resource "aws_s3_bucket_website_configuration" "this" {
   }
 }
 
-resource "aws_s3_bucket_public_access_block" "this" {
+resource "aws_s3_bucket_public_access_block" "website" {
   for_each = local.buckets_website
 
   bucket = aws_s3_bucket.this[each.key].id
@@ -49,6 +49,17 @@ resource "aws_s3_bucket_public_access_block" "this" {
   block_public_policy     = false
   ignore_public_acls      = false
   restrict_public_buckets = false
+}
+
+resource "aws_s3_bucket_public_access_block" "oac" {
+  for_each = local.buckets_oac
+
+  bucket = aws_s3_bucket.this[each.key].id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 
@@ -72,6 +83,34 @@ resource "aws_s3_bucket_policy" "allow_public_access" {
 
   bucket = aws_s3_bucket.this[each.key].id
   policy = data.aws_iam_policy_document.allow_public_access_site_buckets[each.key].json
+}
+
+data "aws_iam_policy_document" "allow_cloudfront_oac_site_buckets" {
+  for_each = local.buckets_oac
+
+  statement {
+    sid    = "AllowCloudFrontOAC"
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.this[each.key].arn}/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.this.arn]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "allow_cloudfront_oac" {
+  for_each = local.buckets_oac
+
+  bucket = aws_s3_bucket.this[each.key].id
+  policy = data.aws_iam_policy_document.allow_cloudfront_oac_site_buckets[each.key].json
 }
 
 resource "aws_s3_bucket" "logging" {

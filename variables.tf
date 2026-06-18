@@ -4,14 +4,41 @@ variable "region" {
 
 variable "buckets" {
   type = list(object({
-    name             = string
-    force_destroy    = bool
-    versioning       = bool
-    website          = bool
-    principal_bucket = bool
-    index_document   = optional(string, "index.html")
-    error_document   = optional(string, "error.html")
+    name                  = string
+    force_destroy         = optional(bool, false)
+    versioning            = optional(bool, false)
+    website               = optional(bool, false)
+    origin_access_control = optional(bool, true)
+    principal_bucket      = bool
+    versions_bucket       = optional(bool, false)
+    index_document        = optional(string, "index.html")
+    error_document        = optional(string, "error.html")
   }))
+
+  validation {
+    condition = length([
+      for b in var.buckets : b if b.website == b.origin_access_control
+    ]) == 0
+    error_message = "var.buckets.website and var.buckets.origin_access_control cant have de same value"
+  }
+
+  validation {
+    condition = alltrue([
+      for b in var.buckets :
+      var.lambda_edge.cf_access_bucket_mode == "s3_website"
+      if !b.versions_bucket && b.website
+    ])
+    error_message = "when 'var.buckets.website' is true, 'var.lambda_edge.cf_access_bucket_mode' needs to be 's3_website'."
+  }
+
+  validation {
+    condition = alltrue([
+      for b in var.buckets :
+      var.lambda_edge.cf_access_bucket_mode == "oac"
+      if !b.versions_bucket && b.origin_access_control
+    ])
+    error_message = "when 'var.buckets.origin_access_control' is true, 'var.lambda_edge.cf_access_bucket_mode' needs to be 'oac'."
+  }
 }
 
 variable "cloudfront" {
@@ -92,11 +119,12 @@ variable "cloudfront" {
 
 variable "lambda_edge" {
   type = object({
-    enabled              = optional(bool, true)
-    function_name        = optional(string, "cloudfront-rollback-origin-request")
-    parameter_store_name = optional(string, "/Lambda/CF/Rollback")
-    handler              = optional(string, "index.handler")
-    runtime              = optional(string, "nodejs20.x")
+    enabled               = optional(bool, true)
+    cf_access_bucket_mode = optional(string, "oac")
+    function_name         = optional(string, "cloudfront-rollback-origin-request")
+    parameter_store_name  = optional(string, "/Lambda/CF/Rollback")
+    handler               = optional(string, "index.handler")
+    runtime               = optional(string, "nodejs20.x")
     associations = optional(list(object({
       event_type   = string
       include_body = optional(bool, false)
@@ -107,6 +135,11 @@ variable "lambda_edge" {
       }
     ])
   })
+
+  validation {
+    condition     = contains(["oac", "s3_website"], var.lambda_edge.cf_access_bucket_mode)
+    error_message = "'lambda_edge.cf_access_bucket_mode' value needs to be 'oac' or 's3_website'."
+  }
 }
 
 variable "route53" {

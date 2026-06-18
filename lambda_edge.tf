@@ -7,10 +7,10 @@ data "archive_file" "lambda_zip" {
   output_path = "${path.module}/.terraform/lambda_edge.zip"
 
   source {
-    content = templatefile("${path.module}/lambda/index.js.tpl", {
+    content = templatefile("${path.module}/lambda/${var.lambda_edge.cf_access_bucket_mode}/index.js.tpl", {
       parameter_name  = aws_ssm_parameter.rollback[count.index].name
-      old_site_domain = aws_s3_bucket_website_configuration.this[values(local.rollback_bucket)[count.index].name].website_endpoint
-      new_site_domain = aws_s3_bucket_website_configuration.this[values(local.production_bucket)[count.index].name].website_endpoint
+      old_site_domain = length(local.buckets_website) > 0 ? aws_s3_bucket_website_configuration.this[values(local.rollback_bucket)[count.index].name].website_endpoint : aws_s3_bucket.this[values(local.rollback_bucket)[count.index].name].bucket_domain_name
+      new_site_domain = length(local.buckets_website) > 0 ? aws_s3_bucket_website_configuration.this[values(local.production_bucket)[count.index].name].website_endpoint : aws_s3_bucket.this[values(local.production_bucket)[count.index].name].bucket_domain_name
     })
     filename = "index.js"
   }

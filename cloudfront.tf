@@ -1,3 +1,13 @@
+resource "aws_cloudfront_origin_access_control" "this" {
+  for_each = local.buckets_oac
+
+  name                              = "${each.value.name}-oac"
+  description                       = "OAC for bucket bucket ${each.value.name}"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
 resource "aws_cloudfront_distribution" "this" {
 
   enabled             = var.cloudfront.enabled
@@ -26,10 +36,19 @@ resource "aws_cloudfront_distribution" "this" {
     }
   }
 
+  dynamic "origin" {
+    for_each = local.buckets_oac
+    content {
+      domain_name              = aws_s3_bucket.this[origin.key].bucket_domain_name
+      origin_id                = "${origin.value.name}-origin"
+      origin_access_control_id = aws_cloudfront_origin_access_control.this[origin.key].id
+    }
+  }
+
   default_cache_behavior {
     allowed_methods  = var.cloudfront.default_cache_behavior.allowed_methods
     cached_methods   = var.cloudfront.default_cache_behavior.cached_methods
-    target_origin_id = var.cloudfront.default_cache_behavior.target_origin_id != null ? var.cloudfront.default_cache_behavior.target_origin_id : "${local.buckets_website["site-production"].name}-origin"
+    target_origin_id = var.cloudfront.default_cache_behavior.target_origin_id != null ? var.cloudfront.default_cache_behavior.target_origin_id : "${local.production_bucket["site-production"].name}-origin"
 
     forwarded_values {
       query_string = var.cloudfront.default_cache_behavior.forwarded_values.query_string
@@ -62,7 +81,7 @@ resource "aws_cloudfront_distribution" "this" {
       path_pattern     = ordered_cache_behavior.value.path_pattern
       allowed_methods  = ordered_cache_behavior.value.allowed_methods
       cached_methods   = ordered_cache_behavior.value.cached_methods
-      target_origin_id = ordered_cache_behavior.value.optional_target_origin_id != null ? ordered_cache_behavior.value.optional_target_origin_id : "${local.buckets_website["site-production"].name}-origin"
+      target_origin_id = ordered_cache_behavior.value.optional_target_origin_id != null ? ordered_cache_behavior.value.optional_target_origin_id : "${local.production_bucket["site-production"].name}-origin"
 
       forwarded_values {
         query_string = ordered_cache_behavior.value.forwarded_values.query_string
