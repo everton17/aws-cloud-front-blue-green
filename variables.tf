@@ -21,24 +21,6 @@ variable "buckets" {
     ]) == 0
     error_message = "var.buckets.website and var.buckets.origin_access_control cant have de same value"
   }
-
-  validation {
-    condition = alltrue([
-      for b in var.buckets :
-      var.lambda_edge.cf_access_bucket_mode == "s3_website"
-      if !b.versions_bucket && b.website
-    ])
-    error_message = "when 'var.buckets.website' is true, 'var.lambda_edge.cf_access_bucket_mode' needs to be 's3_website'."
-  }
-
-  validation {
-    condition = alltrue([
-      for b in var.buckets :
-      var.lambda_edge.cf_access_bucket_mode == "oac"
-      if !b.versions_bucket && b.origin_access_control
-    ])
-    error_message = "when 'var.buckets.origin_access_control' is true, 'var.lambda_edge.cf_access_bucket_mode' needs to be 'oac'."
-  }
 }
 
 variable "cloudfront" {
@@ -119,7 +101,7 @@ variable "cloudfront" {
 
 variable "lambda_edge" {
   type = object({
-    enabled               = optional(bool, true)
+    enabled               = optional(bool, false)
     cf_access_bucket_mode = optional(string, "oac")
     function_name         = optional(string, "cloudfront-rollback-origin-request")
     parameter_store_name  = optional(string, "/Lambda/CF/Rollback")
@@ -165,5 +147,42 @@ variable "acm" {
   validation {
     condition     = var.cloudfront.viewer_certificate.cloudfront_default_certificate != var.acm.create
     error_message = "'cloudfront.viewer_certificate.cloudfront_default_certificate' and 'acm.create' can't have the same value. If you want to use a custom domain, set 'cloudfront.viewer_certificate.cloudfront_default_certificate' to false."
+  }
+}
+
+
+variable "gha_gen_workflows" {
+  type = object({
+    generate_workflows    = optional(bool, true)
+    github_org            = string
+    github_repo           = string
+    role_name             = optional(string, "github-actions-deploy-role")
+    workflow_option       = optional(string, "simple-deploy")
+    workflows_output_path = optional(string, ".github/workflows")
+    deploy_branch         = optional(string, "main")
+    build_command         = optional(string, "npm run build")
+    build_output_dir      = optional(string, "dist")
+  })
+}
+
+resource "terraform_data" "validate_lambda_edge_bucket_access_mode" {
+  lifecycle {
+    precondition {
+      condition = alltrue([
+        for b in var.buckets :
+        var.lambda_edge.cf_access_bucket_mode == "s3_website"
+        if !b.versions_bucket && b.website
+      ])
+      error_message = "when 'var.buckets.website' is true, 'var.lambda_edge.cf_access_bucket_mode' needs to be 's3_website'."
+    }
+
+    precondition {
+      condition = alltrue([
+        for b in var.buckets :
+        var.lambda_edge.cf_access_bucket_mode == "oac"
+        if !b.versions_bucket && b.origin_access_control
+      ])
+      error_message = "when 'var.buckets.origin_access_control' is true, 'var.lambda_edge.cf_access_bucket_mode' needs to be 'oac'."
+    }
   }
 }

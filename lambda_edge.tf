@@ -1,5 +1,3 @@
-data "aws_caller_identity" "current" {}
-
 # Generate zip to lambda@edge from template file
 data "archive_file" "lambda_zip" {
   count       = var.lambda_edge.enabled ? 1 : 0
