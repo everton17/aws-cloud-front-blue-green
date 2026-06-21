@@ -9,7 +9,7 @@ variable "buckets" {
     versioning            = optional(bool, false)
     website               = optional(bool, false)
     origin_access_control = optional(bool, true)
-    main_bucke            = bool
+    main_bucket           = bool
     versions_bucket       = optional(bool, false)
     index_document        = optional(string, "index.html")
     error_document        = optional(string, "error.html")
