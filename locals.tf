@@ -12,11 +12,11 @@ locals {
   }
 
   production_bucket = {
-    for k, v in local.buckets : k => v if v.main_bucke == true && v.versions_bucket == false
+    for k, v in local.buckets : k => v if v.main_bucket == true && v.versions_bucket == false
   }
 
   rollback_bucket = {
-    for k, v in local.buckets : k => v if v.main_bucke == false && v.versions_bucket == false
+    for k, v in local.buckets : k => v if v.main_bucket == false && v.versions_bucket == false
   }
 
   versioning_buckets = {
