@@ -1,0 +1,10 @@
+{
+  "name": "edge-switch-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static demo site for the CloudFront blue/green deploy project.",
+  "scripts": {
+    "build": "rm -rf dist && mkdir -p dist && cp -r src/* dist/",
+    "preview": "npx serve dist -l 5050"
+  }
+}
