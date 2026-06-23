@@ -40,7 +40,7 @@ jobs:
         run: |
           COMMIT_SHA="${{ github.sha }}"
           PACKAGE_NAME="$COMMIT_SHA.tar.gz"
-          tar -czf "$PACKAGE_NAME" -C dist .
+          tar -czf "$PACKAGE_NAME" -C ./bluegreen_site/dist .
           echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Upload versioned package to versions bucket
@@ -50,7 +50,7 @@ jobs:
 
       - name: Upload new version to main bucket
         run: |
-          aws s3 sync dist s3://site-production-4ce1 --delete
+          aws s3 sync ./bluegreen_site/dist s3://site-production-4ce1 --delete
 
       - name: Ensure rollback parameter store is set to false
         run: |
