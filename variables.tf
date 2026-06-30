@@ -21,6 +21,13 @@ variable "buckets" {
     ]) == 0
     error_message = "var.buckets.website and var.buckets.origin_access_control cant have de same value"
   }
+
+  validation {
+    condition = length([
+      for b in var.buckets : b if b.main_bucket == true && b.versions_bucket == false
+    ]) == 1
+    error_message = "Exactly one bucket must be the production bucket (main_bucket = true and versions_bucket = false)."
+  }
 }
 
 variable "cloudfront" {
