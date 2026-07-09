@@ -25,6 +25,7 @@ two paths:
 | If you want to… | Go to |
 |---|---|
 | **Just use it, fast** | ⚡ Quickstart — [English](./docs/en/quickstart.md) · [Português](./docs/pt-br/quickstart.md) |
+| **See all configuration examples** (9 ready-to-use .tfvars files) | 📋 [Test Examples & Scenarios](./docs/TEST_EXAMPLES.md) — Simple, Rollback, Versioning |
 | **Understand every detail** (variables, OAC vs website, OIDC, gotchas) | 📖 Complete guide — [English](./docs/en/full-guide.md) · [Português](./docs/pt-br/full-guide.md) |
 | **See the architecture with AWS logos** | 🎨 [`docs/architecture.drawio`](./docs/architecture.drawio) (open in [draw.io](https://app.diagrams.net) or the VS Code *Draw.io* extension) |
 | **A demo site to test the whole flow** | 🧪 [`bluegreen_site/`](./bluegreen_site/README.md) |

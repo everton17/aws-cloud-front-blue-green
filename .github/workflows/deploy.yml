@@ -19,62 +19,23 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::622047408518:role/github-actions-deploy
+          role-to-assume: arn:aws:iam::622047408518:role/github-actions-deploy-role
           aws-region: us-east-1
           role-session-name: gha-deploy-${{ github.run_id }}
 
-      - name: Clear rollback bucket
-        run: |
-          aws s3 rm s3://site-rollback-afcb --recursive
-
-      - name: Copy current version from main bucket to rollback bucket
-        run: |
-          aws s3 sync s3://site-production-4ce1 s3://site-rollback-afcb
-
       - name: Build
         run: |
-          cd ./bluegreen_site && npm run build
+          npm run build
 
-      - name: Package build into .tar.gz named by commit hash
-        id: package
+      - name: Upload build to S3
         run: |
-          COMMIT_SHA="${{ github.sha }}"
-          PACKAGE_NAME="$COMMIT_SHA.tar.gz"
-          tar -czf "$PACKAGE_NAME" -C ./bluegreen_site/dist .
-          echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
-
-      - name: Upload versioned package to versions bucket
-        run: |
-          aws s3 cp "${{ steps.package.outputs.package_name }}" \
-            s3://site-versions-0973/${{ steps.package.outputs.package_name }}
-
-      - name: Upload new version to main bucket
-        run: |
-          aws s3 sync ./bluegreen_site/dist s3://site-production-4ce1 --delete
-
-      - name: Ensure rollback parameter store is set to false
-        run: |
-          CURRENT_VALUE=$(aws ssm get-parameter \
-            --name "/Lambda/CF/Rollback" \
-            --query "Parameter.Value" \
-            --output text 2>/dev/null || echo "false")
-
-          if [ "$CURRENT_VALUE" = "true" ]; then
-            echo "Parameter store is true, changing to false"
-            aws ssm put-parameter \
-              --name "/Lambda/CF/Rollback" \
-              --value "false" \
-              --type String \
-              --overwrite
-          else
-            echo "Parameter store is already false, nothing to do"
-          fi
+          aws s3 sync dist s3://site-production-5447 --delete
 
       - name: Invalidate CloudFront cache
         id: invalidate
         run: |
           INVALIDATION_ID=$(aws cloudfront create-invalidation \
-            --distribution-id E277M6NI7833EX \
+            --distribution-id E1IP8DQ2YMVM8A \
             --paths "/*" \
             --query "Invalidation.Id" \
             --output text)
@@ -83,11 +44,11 @@ jobs:
       - name: Check invalidation status
         run: |
           aws cloudfront wait invalidation-completed \
-            --distribution-id E277M6NI7833EX \
+            --distribution-id E1IP8DQ2YMVM8A \
             --id ${{ steps.invalidate.outputs.invalidation_id }}
 
           STATUS=$(aws cloudfront get-invalidation \
-            --distribution-id E277M6NI7833EX \
+            --distribution-id E1IP8DQ2YMVM8A \
             --id ${{ steps.invalidate.outputs.invalidation_id }} \
             --query "Invalidation.Status" \
             --output text)

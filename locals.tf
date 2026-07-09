@@ -23,5 +23,5 @@ locals {
     for k, v in local.buckets : k => v if v.versions_bucket == true
   }
 
-  viewer_certificate_arn = var.acm.create ? aws_acm_certificate.this.arn : var.cloudfront.viewer_certificate.acm_certificate_arn
+  viewer_certificate_arn = var.acm.create ? aws_acm_certificate.this[0].arn : var.cloudfront.viewer_certificate.acm_certificate_arn
 }
