@@ -158,6 +158,7 @@ resource "aws_s3_bucket_ownership_controls" "logs" {
 }
 
 resource "aws_s3_bucket_acl" "logs" {
+  count      = var.cloudfront.logging_config != null ? 1 : 0
   depends_on = [aws_s3_bucket_ownership_controls.logs]
 
   bucket = aws_s3_bucket.logging[0].id
