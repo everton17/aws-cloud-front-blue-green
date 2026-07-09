@@ -46,3 +46,4 @@ terraform.rc
 # Build output
 bluegreen_site/dist/
 bluegreen_site/node_modules/
+analysis/*
