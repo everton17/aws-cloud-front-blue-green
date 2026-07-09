@@ -43,3 +43,9 @@ terraform.rc
 # Optional: ignore plan files saved before destroying Terraform configuration
 # Uncomment the line below if you want to ignore planout files.
 # planout
+# Build output
+bluegreen_site/dist/
+bluegreen_site/node_modules/
+
+# Analysis documents (personal notes, not for version control)
+analysis/
