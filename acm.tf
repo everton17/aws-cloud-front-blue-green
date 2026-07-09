@@ -1,4 +1,6 @@
 resource "aws_acm_certificate" "this" {
+  count = var.acm.create ? 1 : 0
+
   domain_name               = var.acm.wildcard ? "*.${var.route53.domain}" : var.route53.domain
   subject_alternative_names = length(var.cloudfront.aliases) > 0 ? var.cloudfront.aliases : null
   validation_method         = var.acm.validation_method
@@ -9,13 +11,13 @@ resource "aws_acm_certificate" "this" {
 }
 
 resource "aws_route53_record" "acm_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.this.domain_validation_options : dvo.domain_name => {
+  for_each = var.acm.create && var.route53.enabled ? {
+    for dvo in aws_acm_certificate.this[0].domain_validation_options : dvo.domain_name => {
       name   = dvo.resource_record_name
       record = dvo.resource_record_value
       type   = dvo.resource_record_type
     }
-  }
+  } : {}
 
   allow_overwrite = true
   name            = each.value.name
