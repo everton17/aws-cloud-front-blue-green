@@ -158,28 +158,52 @@ lambda_edge = {
 4. Lambda@Edge redirects CloudFront requests to the other bucket instantly
 
 **Deploy & Test Rollback:**
-```bash
-# Deploy
-terraform apply -var-file=terraform/test-configs/test-2.1-rollback-base.tfvars
 
-# Deploy app to production bucket
-aws s3 cp dist/ s3://site-production-xxxx/ --recursive
+1. **Infrastructure setup:**
+   ```bash
+   terraform apply -var-file=terraform/test-configs/test-2.1-rollback-base.tfvars
+   ```
+   This generates `deploy.yml` and `rollback.yml` workflows in `.github/workflows/`
 
-# Test it works
-curl https://d1234xyz.cloudfront.net/
+2. **Deploy initial version:**
+   ```bash
+   # Push to your deploy branch (default: main) or trigger manually
+   gh workflow run deploy.yml
+   # Workflow handles: build, S3 upload, CloudFront invalidation
+   ```
 
-# NOW - Deploy new version to rollback bucket for next deploy
-aws s3 cp dist-v2/ s3://site-rollback-xxxx/ --recursive
+3. **Test the deployment:**
+   ```bash
+   curl https://d1234xyz.cloudfront.net/
+   # or open in browser and verify
+   ```
 
-# If version 2 is bad, toggle rollback:
-aws ssm put-parameter --name /Lambda/CF/Rollback --value "true" --overwrite
+4. **Deploy a new version:**
+   ```bash
+   # Make changes, commit, and push
+   git add .
+   git commit -m "New version"
+   git push origin main
+   # Workflow runs automatically on push to main
+   ```
 
-# Traffic instantly switches to rollback bucket (old version)
-curl https://d1234xyz.cloudfront.net/  # Now serving from site-rollback
+5. **Rollback (if needed):**
+   ```bash
+   gh workflow run rollback.yml
+   # Workflow toggles SSM parameter and invalidates CloudFront
+   # Traffic instantly switches to previous version
+   ```
 
-# Toggle back when fixed
-aws ssm put-parameter --name /Lambda/CF/Rollback --value "false" --overwrite
-```
+6. **Restore to current version:**
+   ```bash
+   gh workflow run deploy.yml
+   # Deploys current version again
+   ```
+
+**How the workflow handles it:**
+- Deploy workflow: builds app → uploads to main bucket → copies to rollback bucket → toggles SSM to false → invalidates cache
+- Rollback workflow: toggles SSM to true → invalidates cache
+- All AWS operations use OIDC (no hardcoded keys)
 
 ---
 
@@ -274,29 +298,51 @@ lambda_edge = {
 - ✅ Ability to restore ANY historical version
 
 **Versioning Workflow:**
-```bash
-# Deploy version 1
-terraform apply -var-file=terraform/test-configs/test-3.1-versioning-base.tfvars
-aws s3 cp dist-v1/ s3://site-production-xxxx/ --recursive
 
-# For next deploy: Archive current version
-tar -czf site-v1.tar.gz site/
-aws s3 cp site-v1.tar.gz s3://site-versions-xxxx/
+1. **Infrastructure setup:**
+   ```bash
+   terraform apply -var-file=terraform/test-configs/test-3.1-versioning-base.tfvars
+   ```
+   This generates `deploy.yml` and `rollback-and-restore.yml` workflows
 
-# Deploy version 2
-aws s3 cp dist-v2/ s3://site-production-xxxx/ --recursive
+2. **Deploy version 1:**
+   ```bash
+   gh workflow run deploy.yml
+   # Workflow: builds → uploads to production → archives to versions bucket
+   # Archives are timestamped with commit SHA for easy reference
+   ```
 
-# Problem found in v2? Restore v1:
-# 1. Download archive
-aws s3 cp s3://site-versions-xxxx/site-v1.tar.gz .
-tar -xzf site-v1.tar.gz
+3. **Deploy version 2:**
+   ```bash
+   git add .
+   git commit -m "Version 2 - new features"
+   git push origin main
+   # Workflow runs: builds v2 → uploads to production → archives previous version
+   ```
 
-# 2. Restore to production
-aws s3 cp site/ s3://site-production-xxxx/ --recursive
+4. **Quick rollback to previous version:**
+   ```bash
+   gh workflow run rollback-and-restore.yml
+   # Toggles blue/green instantly (same as Scenario 2)
+   ```
 
-# 3. Toggle Lambda if needed
-aws ssm put-parameter --name /Lambda/CF/Rollback --value "true" --overwrite
-```
+5. **Restore a specific historical version:**
+   ```bash
+   # List available versions
+   aws s3 ls s3://site-versions-xxxx/
+   
+   # Trigger restore workflow with version parameter
+   gh workflow run rollback-and-restore.yml \
+     --ref main \
+     -f version_sha=abc123def456
+   # Workflow: downloads archive → extracts → uploads to production
+   ```
+
+**Versioning features:**
+- Every deploy automatically archives the previous version (with commit SHA)
+- Restore any historical version by SHA via the workflow
+- S3 versioning tracks all changes internally
+- Workflow manages all S3 operations securely via OIDC
 
 ---
 
@@ -395,25 +441,52 @@ Pick one from `/terraform/test-configs/` based on the matrix above.
 terraform plan -var-file=terraform/test-configs/test-X.Y-name.tfvars
 ```
 
-### Step 3: Apply
+### Step 3: Apply Infrastructure
 ```bash
 terraform apply -var-file=terraform/test-configs/test-X.Y-name.tfvars
 ```
+This creates AWS resources **and** generates GitHub Actions workflows in `.github/workflows/`
 
-### Step 4: Deploy Your App
+### Step 4: Deploy Your App via Workflow
 ```bash
-cd bluegreen_site
-npm run build
-aws s3 cp dist/ s3://YOUR-BUCKET-NAME/ --recursive
+# Commit the generated workflows first
+git add .github/workflows/
+git commit -m "ci: add generated deployment workflows"
+git push origin main
+
+# Trigger deploy workflow
+gh workflow run deploy.yml
+# Or push to deploy branch (default: main) to trigger automatically
 ```
+
+The workflow handles:
+- ✅ Building your app
+- ✅ Uploading to S3 bucket(s)
+- ✅ Managing blue/green buckets (if applicable)
+- ✅ Creating version archives (if versioning enabled)
+- ✅ Invalidating CloudFront cache
+- ✅ Authentication via OIDC (no hardcoded keys)
 
 ### Step 5: Test
 ```bash
-curl https://YOUR-CLOUDFRONT-URL/
+# Get the CloudFront URL from terraform outputs
+DISTRIBUTION_URL=$(terraform output -raw cloudfront_distribution_domain)
+
+# Test
+curl https://$DISTRIBUTION_URL/
 # or open in browser
 ```
 
-### Step 6: Cleanup
+### Step 6: Rollback (if needed)
+```bash
+# For Scenarios 2 & 3: instant rollback
+gh workflow run rollback.yml
+
+# For Scenario 3: restore specific version
+gh workflow run rollback-and-restore.yml -f version_sha=abc123
+```
+
+### Step 7: Cleanup
 ```bash
 terraform destroy -var-file=terraform/test-configs/test-X.Y-name.tfvars
 ```
