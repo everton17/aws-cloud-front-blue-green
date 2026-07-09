@@ -129,6 +129,13 @@ variable "lambda_edge" {
     condition     = contains(["oac", "s3_website"], var.lambda_edge.cf_access_bucket_mode)
     error_message = "'lambda_edge.cf_access_bucket_mode' value needs to be 'oac' or 's3_website'."
   }
+
+  validation {
+    condition = !var.lambda_edge.enabled || length([
+      for b in var.buckets : b if !b.main_bucket && !b.versions_bucket
+    ]) > 0
+    error_message = "When 'lambda_edge.enabled' is true, at least one rollback bucket must be configured (a bucket with main_bucket = false and versions_bucket = false)."
+  }
 }
 
 variable "route53" {
