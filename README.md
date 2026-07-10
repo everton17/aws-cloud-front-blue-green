@@ -251,9 +251,24 @@ The fast path lives in the **[Quickstart](./docs/en/quickstart.md)**. In short:
 ### Requirements
 
 - **Terraform ≥ 1.5**, **AWS provider ~> 6.33**.
-- An **AWS account**, with the stack deployed in **`us-east-1`** (required by CloudFront's
-  ACM certificate and Lambda@Edge).
+- **AWS CLI** (installed and configured) — [Installation guide](https://aws.amazon.com/cli/).
+- An **AWS account** with permissions to create CloudFront, S3, Lambda, IAM, SSM, ACM, and Route 53 resources.
+- Stack deployed in **`us-east-1`** (required by CloudFront's ACM certificate and Lambda@Edge).
 - A **GitHub repository** for the generated CI/CD; a **Route 53 hosted zone** for custom domains.
+
+**AWS Authentication:**
+```bash
+# Configure via AWS CLI
+aws configure
+
+# Or export credentials as environment variables
+export AWS_ACCESS_KEY_ID=your-access-key
+export AWS_SECRET_ACCESS_KEY=your-secret-key
+export AWS_DEFAULT_REGION=us-east-1
+
+# Validate authentication
+aws sts get-caller-identity
+```
 
 ---
 

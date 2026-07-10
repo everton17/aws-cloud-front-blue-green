@@ -308,12 +308,58 @@ using `role-to-assume: <generated role ARN>` and `permissions: id-token: write`.
 ## Requirements
 
 - **Terraform** `>= 1.5.0` (the workflows module uses `check` blocks).
+- **AWS CLI** (installed and configured) — [Installation guide](https://aws.amazon.com/cli/).
 - **AWS provider** `~> 6.33` (root); module is compatible with `>= 5.0`.
 - An **AWS account** with permission to create CloudFront, S3, Lambda, IAM, SSM, ACM,
   and Route 53 resources.
 - **`us-east-1`** as the deployment region (CloudFront ACM + Lambda@Edge requirement).
 - A **GitHub repository** (org + repo name) if you want the generated CI/CD.
 - For custom domains: a **Route 53 hosted zone** for your domain.
+
+---
+
+## AWS Authentication
+
+Before provisioning the stack, configure your AWS credentials via AWS CLI.
+
+### Option 1: Interactive configuration (recommended)
+
+```bash
+aws configure
+```
+
+You'll be prompted for:
+- **AWS Access Key ID**
+- **AWS Secret Access Key**
+- **Default region name:** `us-east-1`
+- **Default output format:** `json` (or leave blank)
+
+### Option 2: Environment variables
+
+Export your credentials before running Terraform:
+
+```bash
+export AWS_ACCESS_KEY_ID=your-access-key-here
+export AWS_SECRET_ACCESS_KEY=your-secret-key-here
+export AWS_DEFAULT_REGION=us-east-1
+```
+
+### Validate authentication
+
+After configuring, validate your connection:
+
+```bash
+aws sts get-caller-identity
+```
+
+This should return information like:
+```json
+{
+    "UserId": "AIDAI...",
+    "Account": "123456789012",
+    "Arn": "arn:aws:iam::123456789012:user/your-user"
+}
+```
 
 ---
 

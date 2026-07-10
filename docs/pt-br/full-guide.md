@@ -315,12 +315,58 @@ Todo workflow gerado se autentica com `aws-actions/configure-aws-credentials@v4`
 ## Pré-requisitos
 
 - **Terraform** `>= 1.5.0` (o módulo de workflows usa blocos `check`).
+- **AWS CLI** (instalado e configurado) — [Guia de instalação](https://aws.amazon.com/pt/cli/).
 - **AWS provider** `~> 6.33` na raiz; o módulo é compatível com `>= 5.0`.
 - Uma **conta AWS** com permissão para criar recursos de CloudFront, S3, Lambda, IAM, SSM,
   ACM e Route 53.
 - **`us-east-1`** como região de deploy (exigência do ACM do CloudFront + Lambda@Edge).
 - Um **repositório GitHub** (org + nome do repo) caso queira o CI/CD gerado.
 - Para domínios customizados: uma **hosted zone no Route 53** para o seu domínio.
+
+---
+
+## Autenticação AWS
+
+Antes de provisionar a stack, configure suas credenciais AWS via AWS CLI.
+
+### Opção 1: Configuração interativa (recomendada)
+
+```bash
+aws configure
+```
+
+Você será solicitado a fornecer:
+- **AWS Access Key ID**
+- **AWS Secret Access Key**
+- **Default region name:** `us-east-1`
+- **Default output format:** `json` (ou deixe em branco)
+
+### Opção 2: Variáveis de ambiente
+
+Exporte suas credenciais antes de rodar Terraform:
+
+```bash
+export AWS_ACCESS_KEY_ID=sua-access-key-aqui
+export AWS_SECRET_ACCESS_KEY=sua-secret-key-aqui
+export AWS_DEFAULT_REGION=us-east-1
+```
+
+### Validar a autenticação
+
+Após configurar, valide a conexão:
+
+```bash
+aws sts get-caller-identity
+```
+
+Isso deve retornar informações como:
+```json
+{
+    "UserId": "AIDAI...",
+    "Account": "123456789012",
+    "Arn": "arn:aws:iam::123456789012:user/seu-usuario"
+}
+```
 
 ---
 

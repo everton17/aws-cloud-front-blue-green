@@ -52,8 +52,31 @@ Selected via `gha_gen_workflows.workflow_option`:
 
 ## How to deploy
 
-Prerequisites: **Terraform ≥ 1.5**, an **AWS** account (deploy in **`us-east-1`**), and a
-**GitHub** repo for CI/CD.
+**Prerequisites:**
+- **Terraform ≥ 1.5**
+- **AWS CLI** (installed and configured) — [Installation guide](https://aws.amazon.com/cli/)
+- An **AWS** account with permissions to create CloudFront, S3, Lambda, IAM, SSM, ACM, and Route 53 resources
+- Deploy in **`us-east-1`** (required for CloudFront + Lambda@Edge)
+- A **GitHub** repo for CI/CD
+
+### AWS Authentication
+
+Before provisioning, configure your AWS credentials via AWS CLI:
+
+```bash
+# Option 1: Interactive AWS CLI configuration
+aws configure
+
+# Or export credentials as environment variables:
+export AWS_ACCESS_KEY_ID=your-access-key
+export AWS_SECRET_ACCESS_KEY=your-secret-key
+export AWS_DEFAULT_REGION=us-east-1
+
+# Validate authentication
+aws sts get-caller-identity
+```
+
+### Steps to provision
 
 1. Create a `terraform.tfvars` (ready-made examples per modality in the
    [complete guide](./full-guide.md#configuration-examples-tfvars)).

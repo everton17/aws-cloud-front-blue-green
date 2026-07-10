@@ -264,7 +264,20 @@ terraform destroy -var-file=terraform-versioning-demo.tfvars -auto-approve
 
 ## ✅ Demo Checklist
 
-- [ ] AWS credentials configured (`aws sts get-caller-identity`)
+- [ ] **AWS CLI installed** — [Installation guide](https://aws.amazon.com/cli/)
+- [ ] **AWS credentials configured:**
+  ```bash
+  # Option 1: Via AWS CLI
+  aws configure
+  
+  # Option 2: Via environment variables
+  export AWS_ACCESS_KEY_ID=your-access-key
+  export AWS_SECRET_ACCESS_KEY=your-secret-key
+  export AWS_DEFAULT_REGION=us-east-1
+  
+  # Validate
+  aws sts get-caller-identity
+  ```
 - [ ] GitHub token set (if testing workflows)
 - [ ] `terraform init` completed
 - [ ] bluegreen_site dependencies installed (`npm install`)
