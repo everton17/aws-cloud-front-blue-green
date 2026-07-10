@@ -194,10 +194,10 @@ Configurado automaticamente pelo módulo `gha_gen_workflows`.
 ┌─────────────────────────────────┐
 │  Job GitHub Actions Inicia      │
 ├─────────────────────────────────┤
-│ 1. Assumir papel IAM via OIDC    │
-│ 2. Build da aplicação            │
-│ 3. Upload para AWS (S3/SSM)      │
-│ 4. Invalidar cache CloudFront    │
+│ 1. Assumir papel IAM via OIDC   │
+│ 2. Build da aplicação           │
+│ 3. Upload para AWS (S3/SSM)     │
+│ 4. Invalidar cache CloudFront   │
 └────────┬────────────────────────┘
          │
          ▼
