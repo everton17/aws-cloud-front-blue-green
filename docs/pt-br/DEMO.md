@@ -6,11 +6,11 @@ Este guia percorre demostrações rápidas dos três stacks de deployment usando
 
 ## 📋 Referência Rápida
 
-| Demo | Arquivo | Tempo | Funcionalidades | Custo |
-|------|---------|-------|-----------------|-------|
-| **Simples** | `terraform-simple-demo.tfvars` | 5 min | CloudFront + S3 | ~$0,50-2/mês |
-| **Rollback** | `terraform-rollback-demo.tfvars` | 8 min | + Lambda@Edge + Blue/Green | ~$2-5/mês |
-| **Versionamento** | `terraform-versioning-demo.tfvars` | 10 min | + Arquivo de Versões + Restaurar | ~$3-8/mês |
+| Demo | Arquivo | Tempo | Funcionalidades |
+|------|---------|-------|-----------------|
+| **Simples** | `terraform-simple-demo.tfvars` | 5 min | CloudFront + S3 |
+| **Rollback** | `terraform-rollback-demo.tfvars` | 8 min | + Lambda@Edge + Blue/Green |
+| **Versionamento** | `terraform-versioning-demo.tfvars` | 10 min | + Arquivo de Versões + Restaurar |
 
 ---
 
