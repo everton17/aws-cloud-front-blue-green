@@ -193,10 +193,10 @@ Configured automatically by the `gha_gen_workflows` module.
 ┌─────────────────────────────────┐
 │  GitHub Actions Job Starts      │
 ├─────────────────────────────────┤
-│ 1. Assume IAM role via OIDC      │
-│ 2. Build application             │
-│ 3. Upload to AWS (S3/SSM)        │
-│ 4. Invalidate CloudFront cache   │
+│ 1. Assume IAM role via OIDC     │
+│ 2. Build application            │
+│ 3. Upload to AWS (S3/SSM)       │
+│ 4. Invalidate CloudFront cache  │
 └────────┬────────────────────────┘
          │
          ▼
