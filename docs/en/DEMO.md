@@ -6,11 +6,11 @@ This guide walks through rapid demonstrations of the three deployment stacks usi
 
 ## 📋 Quick Reference
 
-| Demo | File | Time | Features | Cost |
-|------|------|------|----------|------|
-| **Simple** | `terraform-simple-demo.tfvars` | 5 min | CloudFront + S3 | ~$0.50-2/mo |
-| **Rollback** | `terraform-rollback-demo.tfvars` | 8 min | + Lambda@Edge + Blue/Green | ~$2-5/mo |
-| **Versioning** | `terraform-versioning-demo.tfvars` | 10 min | + Version Archive + Restore | ~$3-8/mo |
+| Demo | File | Time | Features |
+|------|------|------|----------|
+| **Simple** | `terraform-simple-demo.tfvars` | 5 min | CloudFront + S3 |
+| **Rollback** | `terraform-rollback-demo.tfvars` | 8 min | + Lambda@Edge + Blue/Green |
+| **Versioning** | `terraform-versioning-demo.tfvars` | 10 min | + Version Archive + Restore |
 
 ---
 
