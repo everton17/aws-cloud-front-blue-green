@@ -51,7 +51,7 @@ Este guia explica como os workflows do GitHub Actions são auto-gerados e seu pa
 |-------------------|----------|------------------|
 | `simple-deploy` | Simples | • `deploy.yml` |
 | `deploy-and-rollback` | Rollback | • `deploy.yml`<br>• `rollback.yml` |
-| `deploy-rollback-and-restore` | Versionamento | • `deploy.yml`<br>• `rollback.yml`<br>• `rollback-and-restore.yml` |
+| `deploy-rollback-and-restore` | Versionamento | • `deploy.yml`<br>• `rollback-and-restore.yml` |
 
 ---
 
