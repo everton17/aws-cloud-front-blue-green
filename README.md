@@ -47,7 +47,6 @@ Not sure which setup you need? **Choose based on your requirements:**
 ✅ CloudFront + S3
 ❌ No rollback
 ❌ No version history
-💰 ~$0.50-2/month
 ```
 
 **When to use:** Quick deployments, MVPs, simple static sites, learning
@@ -66,7 +65,6 @@ terraform plan -var-file=terraform-simple-demo.tfvars
 ✅ CloudFront + 2 S3 buckets
 ✅ Instant rollback (one click)
 ❌ No version history
-💰 ~$2-5/month
 ```
 
 **When to use:** Production sites, zero-downtime deploys, need instant rollback
@@ -85,7 +83,6 @@ terraform plan -var-file=terraform-rollback-demo.tfvars
 ✅ CloudFront + 3 S3 buckets
 ✅ Instant rollback (one click)
 ✅ Restore ANY historical version
-💰 ~$3-8/month
 ```
 
 **When to use:** Mission-critical apps, audit requirements, disaster recovery, full history
@@ -107,7 +104,6 @@ terraform plan -var-file=terraform-versioning-demo.tfvars
 | Restore Any Version | — | — | ✅ |
 | Lambda@Edge | — | ✅ | ✅ |
 | Setup Time | 5 min | 8 min | 10 min |
-| Monthly Cost | ~$1 | ~$3 | ~$5 |
 
 **👉 See detailed demos with step-by-step instructions:**
 - 🌐 **English:** [docs/en/DEMO.md](./docs/en/DEMO.md)
