@@ -14,19 +14,6 @@ Este guia percorre demostrações rápidas dos três stacks de deployment usando
 
 ---
 
-## 🛣️ Dois Caminhos: Manual vs Workflows GitHub Actions
-
-Cada demo pode ser testada de **duas formas**:
-
-| Caminho | Método | Quando Usar | Tempo |
-|--------|--------|------------|-------|
-| **Manual** | AWS CLI (`aws s3 cp`, `aws ssm put-parameter`, etc.) | Aprendizado, debug, testes rápidos | ~5-10 min |
-| **Workflows** ⭐ | GitHub Actions (auto-gerado pelo Terraform) | Testes em produção, validação CI/CD, **recomendado** | ~3-5 min por workflow |
-
-**Recomendado:** Use **workflows GitHub Actions** — demonstra a stack funcionando end-to-end com autenticação OIDC, exatamente como estará em produção.
-
----
-
 ## 🟢 DEMO 1: Stack Simples (5 minutos)
 
 **O que você verá:** Deployment básico de CloudFront + S3  
@@ -56,26 +43,6 @@ curl -I https://$DOMAIN/
 - ✅ Bucket S3 com OAC (acesso privado)
 - ✅ Respostas de erro customizadas (404 → index.html para SPA)
 - ✅ Comportamentos de cache (caminhos de API com TTL diferente)
-
-### ⭐ Usando Workflows GitHub Actions (Recomendado)
-
-Em vez de comandos manuais de AWS CLI, use o workflow auto-gerado:
-
-```bash
-# 1. Fazer commit do workflow gerado
-git add .github/workflows/deploy.yml
-git commit -m "ci: add auto-generated deployment workflow"
-git push origin main
-
-# 2. Triggerar o workflow (automático em push ou manual)
-gh workflow run deploy.yml
-
-# 3. Monitorar o workflow
-gh run list --workflow deploy.yml
-gh run view [RUN_ID]  # Ver logs e outputs
-```
-
-**Resultado:** Mesmo deployment, mas com autenticação OIDC e validação CI/CD completa — exatamente como funcionará em produção.
 
 ---
 
@@ -128,24 +95,6 @@ aws ssm put-parameter --name "/BlueGreen/Rollback" --value "false" --overwrite
 ### Pontos-Chave
 
 > "Este é deployment sem downtime. Em vez de rebuildar no rollback, alternamos um parâmetro SSM que Lambda@Edge lê. A mudança é instantânea e a versão anterior já está aquecida no bucket azul."
-
-### ⭐ Usando Workflows GitHub Actions (Recomendado)
-
-Use os workflows auto-gerados para o fluxo completo de produção:
-
-```bash
-# 1. Deploy com o workflow de deploy
-gh workflow run deploy.yml
-gh run watch  # Aguardar conclusão
-
-# 2. Rollback com um comando
-gh workflow run rollback.yml
-
-# 3. Monitorar ambos
-gh run list --limit 10
-```
-
-**Resultado:** Ciclo blue-green completo com autenticação OIDC, igual ao deployment em produção.
 
 ---
 
@@ -206,27 +155,6 @@ aws s3 ls s3://demo-site-versions-*/
 ### Pontos-Chave
 
 > "Deployment de nível produção: faça rollback instantaneamente E restaure qualquer versão histórica do arquivo completo. Cada build é arquivado com seu SHA de commit, então você sempre tem um backup."
-
-### ⭐ Usando Workflows GitHub Actions (Recomendado)
-
-Use os três workflows para o fluxo de produção completo:
-
-```bash
-# 1. Deploy com o workflow de deploy (auto-arquiva)
-gh workflow run deploy.yml
-gh run watch
-
-# 2. Rollback instantâneo
-gh workflow run rollback.yml
-
-# 3. Restaurar uma versão específica
-gh workflow run rollback-and-restore.yml -f version_sha=abc123def456
-
-# 4. Monitorar todos os runs
-gh run list --limit 10
-```
-
-**Resultado:** Ciclo de versionamento completo com arquivamento automático, autenticação OIDC e recuperação de desastres — pronto para produção.
 
 ---
 
