@@ -19,23 +19,23 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::622047408518:role/github-actions-deploy-role
+          role-to-assume: arn:aws:iam::622047408518:role/github-actions-deploy
           aws-region: us-east-1
           role-session-name: gha-deploy-${{ github.run_id }}
 
       - name: Build
         run: |
-          npm run build
+          cd ./bluegreen_site && npm run build
 
       - name: Upload build to S3
         run: |
-          aws s3 sync dist s3://site-production-5447 --delete
+          aws s3 sync ./bluegreen_site/dist s3://site-production-0ef5 --delete
 
       - name: Invalidate CloudFront cache
         id: invalidate
         run: |
           INVALIDATION_ID=$(aws cloudfront create-invalidation \
-            --distribution-id E1IP8DQ2YMVM8A \
+            --distribution-id E34D4UOOI5XVMG \
             --paths "/*" \
             --query "Invalidation.Id" \
             --output text)
@@ -44,11 +44,11 @@ jobs:
       - name: Check invalidation status
         run: |
           aws cloudfront wait invalidation-completed \
-            --distribution-id E1IP8DQ2YMVM8A \
+            --distribution-id E34D4UOOI5XVMG \
             --id ${{ steps.invalidate.outputs.invalidation_id }}
 
           STATUS=$(aws cloudfront get-invalidation \
-            --distribution-id E1IP8DQ2YMVM8A \
+            --distribution-id E34D4UOOI5XVMG \
             --id ${{ steps.invalidate.outputs.invalidation_id }} \
             --query "Invalidation.Status" \
             --output text)
