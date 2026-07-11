@@ -29,13 +29,13 @@ jobs:
 
       - name: Upload build to S3
         run: |
-          aws s3 sync ./bluegreen_site/dist s3://site-production-0ef5 --delete
+          aws s3 sync ./bluegreen_site/dist s3://demo-site-production-c1f3 --delete
 
       - name: Invalidate CloudFront cache
         id: invalidate
         run: |
           INVALIDATION_ID=$(aws cloudfront create-invalidation \
-            --distribution-id E34D4UOOI5XVMG \
+            --distribution-id E23FM8N98CVBVV \
             --paths "/*" \
             --query "Invalidation.Id" \
             --output text)
@@ -44,11 +44,11 @@ jobs:
       - name: Check invalidation status
         run: |
           aws cloudfront wait invalidation-completed \
-            --distribution-id E34D4UOOI5XVMG \
+            --distribution-id E23FM8N98CVBVV \
             --id ${{ steps.invalidate.outputs.invalidation_id }}
 
           STATUS=$(aws cloudfront get-invalidation \
-            --distribution-id E34D4UOOI5XVMG \
+            --distribution-id E23FM8N98CVBVV \
             --id ${{ steps.invalidate.outputs.invalidation_id }} \
             --query "Invalidation.Status" \
             --output text)
