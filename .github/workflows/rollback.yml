@@ -1,8 +1,6 @@
-name: Deploy
+name: Rollback
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -10,51 +8,32 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  rollback:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::622047408518:role/github-actions-deploy
           aws-region: us-east-1
-          role-session-name: gha-deploy-${{ github.run_id }}
+          role-session-name: gha-rollback-${{ github.run_id }}
 
-      - name: Clear rollback bucket
-        run: |
-          aws s3 rm s3://demo-site-blue-19f2 --recursive
-
-      - name: Copy current version from main bucket to rollback bucket
-        run: |
-          aws s3 sync s3://demo-site-green-73d8 s3://demo-site-blue-19f2
-
-      - name: Build
-        run: |
-          cd ./bluegreen_site && npm run build
-
-      - name: Upload new version to main bucket
-        run: |
-          aws s3 sync ./bluegreen_site/dist s3://demo-site-green-73d8 --delete
-
-      - name: Ensure rollback parameter store is set to false
+      - name: Activate rollback in parameter store
         run: |
           CURRENT_VALUE=$(aws ssm get-parameter \
             --name "/BlueGreen/Rollback" \
             --query "Parameter.Value" \
             --output text 2>/dev/null || echo "false")
 
-          if [ "$CURRENT_VALUE" = "true" ]; then
-            echo "Parameter store is true, changing to false"
+          if [ "$CURRENT_VALUE" = "false" ]; then
+            echo "Parameter store is false, changing to true"
             aws ssm put-parameter \
               --name "/BlueGreen/Rollback" \
-              --value "false" \
+              --value "true" \
               --type String \
               --overwrite
           else
-            echo "Parameter store is already false, nothing to do"
+            echo "Parameter store is already true, nothing to do"
           fi
 
       - name: Invalidate CloudFront cache
