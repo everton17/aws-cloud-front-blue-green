@@ -33,16 +33,19 @@ data "aws_iam_policy_document" "github_actions_deploy" {
   }
 
   # --- SSM Parameter Store: write restricted to a specific parameter ---
-  statement {
-    sid    = "SSMWriteSpecificParameter"
-    effect = "Allow"
-    actions = [
-      "ssm:PutParameter",
-      "ssm:GetParameter",
-      "ssm:GetParameters",
-      "ssm:LabelParameterVersion",
-    ]
-    resources = [var.ssm_parameter_arn]
+  dynamic "statement" {
+    for_each = var.ssm_parameter_arn != "" ? [var.ssm_parameter_arn] : []
+    content {
+      sid    = "SSMWriteSpecificParameter"
+      effect = "Allow"
+      actions = [
+        "ssm:PutParameter",
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:LabelParameterVersion",
+      ]
+      resources = [statement.value]
+    }
   }
 
   # --- CloudFront: only allow creating invalidation on the specified distribution ---
