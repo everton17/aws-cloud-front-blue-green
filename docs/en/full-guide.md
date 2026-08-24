@@ -28,17 +28,18 @@ access, and a complete **GitHub Actions CI/CD pipeline** authenticated through *
 4. [The three deployment modalities](#the-three-deployment-modalities)
 5. [Architecture](#architecture)
 6. [Bucket access modes: public (website) vs private (OAC)](#bucket-access-modes-public-website-vs-private-oac)
-7. [GitHub Actions + OIDC (keyless CI/CD)](#github-actions--oidc-keyless-cicd)
-8. [Repository structure](#repository-structure)
-9. [Requirements](#requirements)
-10. [Getting started](#getting-started)
-11. [Configuration examples (`tfvars`)](#configuration-examples-tfvars)
-12. [Day-2 operations: deploy, rollback, restore](#day-2-operations-deploy-rollback-restore)
-13. [Variable reference](#variable-reference)
-14. [Outputs](#outputs)
-15. [Conventions, constraints & gotchas](#conventions-constraints--gotchas)
-16. [Use cases](#use-cases)
-17. [Suggested enhancements / roadmap](#suggested-enhancements--roadmap)
+7. [Custom origins (non-S3 backends)](#custom-origins-non-s3-backends)
+8. [GitHub Actions + OIDC (keyless CI/CD)](#github-actions--oidc-keyless-cicd)
+9. [Repository structure](#repository-structure)
+10. [Requirements](#requirements)
+11. [Getting started](#getting-started)
+12. [Configuration examples (`tfvars`)](#configuration-examples-tfvars)
+13. [Day-2 operations: deploy, rollback, restore](#day-2-operations-deploy-rollback-restore)
+14. [Variable reference](#variable-reference)
+15. [Outputs](#outputs)
+16. [Conventions, constraints & gotchas](#conventions-constraints--gotchas)
+17. [Use cases](#use-cases)
+18. [Suggested enhancements / roadmap](#suggested-enhancements--roadmap)
 
 ---
 
@@ -236,6 +237,71 @@ preconditions ensure the Lambda mode matches the buckets' access mode.
 
 ---
 
+## Custom origins (non-S3 backends)
+
+`var.custom_origins` lets CloudFront route to any HTTP(S) backend — an ALB, API Gateway, or
+external API — alongside the S3 bucket(s). Each entry becomes a plain `custom_origin_config`
+CloudFront origin, using the same `"<name>-origin"` id convention as buckets, so it composes
+directly with `cloudfront.ordered_cache_behaviors[*].optional_target_origin_id` (or even
+`cloudfront.default_cache_behavior.target_origin_id`, if the whole distribution should be
+backed by the custom origin instead of S3):
+
+```hcl
+custom_origins = [
+  {
+    name                   = "internal-api"
+    domain_name            = "internal-alb-123456.us-east-1.elb.amazonaws.com"
+    origin_protocol_policy = "https-only"                # "http-only" | "https-only" | "match-viewer"
+    custom_headers = [
+      { name = "Authorization", value = "Bearer <token>" } # static per-distribution, not per-viewer
+    ]
+  }
+]
+
+cloudfront = {
+  ordered_cache_behaviors = [
+    {
+      path_pattern               = "/api/*"
+      optional_target_origin_id  = "internal-api-origin"  # "<custom_origins[*].name>-origin"
+      disable_lambda_association = true
+      forwarded_values = {
+        query_string = true
+        headers       = ["Authorization"]                 # forward this header to the backend
+        cookies       = { forward = "none" }
+      }
+      ...
+    }
+  ]
+}
+```
+
+**Per-custom-origin fields** (`custom_origins[*]`):
+
+| Field | Default | Notes |
+|---|---|---|
+| `name` | — | Must be unique across `custom_origins` and must not collide with any `buckets[*].name` (both build the same `<name>-origin` id; enforced by a precondition). |
+| `domain_name` | — | The backend's DNS name (ALB, API Gateway custom domain, external host, etc). |
+| `origin_path` | `null` | Optional path prefix appended to the domain when CloudFront forwards the request. |
+| `http_port` / `https_port` | `80` / `443` | |
+| `origin_protocol_policy` | `"https-only"` | `"http-only"`, `"https-only"` or `"match-viewer"`. |
+| `origin_ssl_protocols` | `["TLSv1.2"]` | |
+| `custom_headers` | `[]` | List of `{ name, value }` sent by CloudFront on every request to this origin (e.g. a shared API key). Not a substitute for per-viewer auth. |
+
+**Lambda@Edge and custom origins don't mix.** The rollback Lambda only knows how to rewrite
+requests toward the S3 main/rollback buckets — it has no notion of custom origins. Any
+`default_cache_behavior` or `ordered_cache_behaviors[*]` entry that targets a custom origin
+should set `disable_lambda_association = true` (default `false`, so existing S3-only configs
+are unaffected) when `lambda_edge.enabled = true` elsewhere in the stack.
+
+`forwarded_values.headers` (default `[]`, in both `default_cache_behavior` and
+`ordered_cache_behaviors[*]`) forwards the listed viewer headers to the origin — useful for
+`Authorization` or similar on an API path. It uses the same legacy `forwarded_values` schema
+already used everywhere in this module (not the newer cache-policy/origin-request-policy
+APIs) for consistency; note that any forwarded header becomes part of the cache key unless
+you keep TTLs at `0` for that behavior.
+
+---
+
 ## GitHub Actions + OIDC (keyless CI/CD)
 
 The `gha_gen_workflows` module provisions the CI/CD layer with **no static credentials**:
@@ -266,10 +332,10 @@ using `role-to-assume: <generated role ARN>` and `permissions: id-token: write`.
 .
 ├── main.tf                 # Terraform + AWS/random providers, default tags
 ├── variables.tf            # Root input variables (+ validations & preconditions)
-├── locals.tf               # Bucket classification (main/rollback/versions, oac/website)
+├── locals.tf               # Bucket classification (main/rollback/versions, oac/website, custom_origins map)
 ├── data.tf                 # aws_caller_identity
 ├── s3.tf                   # Buckets, policies, public-access blocks, logging bucket
-├── cloudfront.tf           # OAC + CloudFront distribution (origins, behaviors, Lambda assoc.)
+├── cloudfront.tf           # OAC + CloudFront distribution (S3 + custom origins, behaviors, Lambda assoc.)
 ├── lambda_edge.tf          # Lambda@Edge packaging, IAM role/policy, SSM parameter
 ├── acm.tf                  # ACM certificate + DNS validation records
 ├── route53.tf              # Route 53 alias A records for the distribution
@@ -580,7 +646,8 @@ that version, sets the toggle back to `"false"`, and invalidates the cache.
 |---|---|---|---|
 | `region` | `string` | — | AWS region. Use `us-east-1` (see gotchas). |
 | `buckets` | `list(object)` | — | Buckets to create. Per bucket: `name`, `main_bucket` (required); `versions_bucket`, `website`, `origin_access_control`, `versioning`, `force_destroy`, `index_document`, `error_document` (optional). Validation: `website` and `origin_access_control` must differ. |
-| `cloudfront` | `object` | — | Full CloudFront config: `enabled`, `default_root_object`, `aliases`, `default_cache_behavior`, `ordered_cache_behaviors`, `custom_error_response`, `restrictions`, `viewer_certificate`, `logging_config`, `price_class`, `http_version`, `web_acl_id`, etc. |
+| `custom_origins` | `list(object)` | `[]` | Non-S3 HTTP(S) origins (ALB, API Gateway, external APIs). Per origin: `name`, `domain_name` (required); `origin_path`, `http_port`, `https_port`, `origin_protocol_policy`, `origin_ssl_protocols`, `custom_headers` (optional). See [Custom origins](#custom-origins-non-s3-backends). |
+| `cloudfront` | `object` | — | Full CloudFront config: `enabled`, `default_root_object`, `aliases`, `default_cache_behavior`, `ordered_cache_behaviors`, `custom_error_response`, `restrictions`, `viewer_certificate`, `logging_config`, `price_class`, `http_version`, `web_acl_id`, etc. Both `default_cache_behavior` and each `ordered_cache_behaviors[*]` also take `disable_lambda_association` (default `false`) and `forwarded_values.headers` (default `[]`). |
 | `lambda_edge` | `object` | `enabled=false` | Blue/green Lambda: `enabled`, `cf_access_bucket_mode` (`"oac"`/`"s3_website"`), `function_name`, `parameter_store_name` (default `/Lambda/CF/Rollback`), `handler`, `runtime` (default `nodejs20.x`), `associations` (default `origin-request`). |
 | `route53` | `object` | `enabled=false` | `enabled`, `domain`, `private_zone`. When enabled, `domain` is required. |
 | `acm` | `object` | `create=true` | `create`, `wildcard`, `validation_method`. Must be the inverse of `cloudfront.viewer_certificate.cloudfront_default_certificate`. |
@@ -598,6 +665,8 @@ that version, sets the toggle back to `"false"`, and invalidates the cache.
 | `versioning` | `false` | Enable S3 object versioning. |
 | `force_destroy` | `false` | Allow Terraform to delete a non-empty bucket. |
 | `index_document` / `error_document` | `index.html` / `error.html` | Website docs (website mode). |
+
+**Per-custom-origin fields (`custom_origins[*]`):** see [Custom origins](#custom-origins-non-s3-backends).
 
 ### `gha_gen_workflows` module
 
@@ -658,6 +727,10 @@ that version, sets the toggle back to `"false"`, and invalidates the cache.
   not by guessing.
 - **`force_destroy`** is needed for Terraform to tear down non-empty buckets — handy in
   demos, riskier in production.
+- **`custom_origins[*].name` can't collide with `buckets[*].name`.** Both build the same
+  `<name>-origin` CloudFront origin id (enforced by a precondition). Set
+  `disable_lambda_association = true` on any behavior targeting a custom origin when
+  `lambda_edge.enabled = true` — see [Custom origins](#custom-origins-non-s3-backends).
 
 ---
 

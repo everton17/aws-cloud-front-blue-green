@@ -169,6 +169,9 @@ Algumas restrições que vale ter em mente (o
   CloudFront em `false`.
 - A propagação do rollback ≈ TTL de cache da Lambda (~60s) + tempo de invalidação — é rápido,
   mas não literalmente instantâneo.
+- `custom_origins[*].name` não pode colidir com `buckets[*].name` — os dois montam o mesmo id
+  `<name>-origin` no CloudFront. Defina `disable_lambda_association = true` em qualquer cache
+  behavior que aponte pra uma custom origin quando `lambda_edge.enabled = true`.
 
 ---
 

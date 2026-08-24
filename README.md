@@ -111,6 +111,26 @@ terraform plan -var-file=terraform-versioning-demo.tfvars
 
 ---
 
+### 4️⃣ Custom Origin — non-S3 backend (5 minutes)
+**File:** [`terraform-custom-origin-demo.tfvars`](./terraform-custom-origin-demo.tfvars)
+
+```
+✅ CloudFront + S3 (default behavior)
+✅ Route a path (e.g. /api/*) to an ALB, API Gateway or any HTTP(S) backend
+❌ No rollback on the custom-origin path (opt-in per behavior)
+```
+
+**When to use:** Static site that also needs to reach an existing API/backend through the
+same CloudFront distribution. Combine `var.custom_origins` with `ordered_cache_behaviors` —
+see [Test Examples → Scenario 4](./docs/TEST_EXAMPLES.md#-scenario-4-custom-origin-non-s3-backend).
+
+**Try it:**
+```bash
+terraform plan -var-file=terraform-custom-origin-demo.tfvars
+```
+
+---
+
 ## 📝 Configuring Your Own Stack
 
 All demo files include **heavily commented explanations** of every setting. To customize:
@@ -127,7 +147,8 @@ All demo files include **heavily commented explanations** of every setting. To c
 3. **Key sections to customize:**
    - `region` — AWS region (must be `us-east-1` for CloudFront + Lambda@Edge)
    - `buckets` — S3 bucket names and modes (OAC vs website, rollback, versioning)
-   - `cloudfront` — Caching rules, custom domains, error responses
+   - `custom_origins` — Optional non-S3 backends (ALB, API Gateway, external APIs) CloudFront can route to
+   - `cloudfront` — Caching rules, custom domains, error responses, per-behavior `optional_target_origin_id`
    - `lambda_edge` — Enable rollback toggle
    - `route53` — Custom domains
    - `acm` — SSL certificates
@@ -305,6 +326,9 @@ A few constraints worth keeping in mind (the
 - For a **custom domain**, use ACM (`acm.create = true`) and set the CloudFront default
   certificate to `false`.
 - Rollback propagation ≈ Lambda cache TTL (~60s) + invalidation time — fast, not literally instant.
+- `custom_origins[*].name` can't collide with `buckets[*].name` — both build the same
+  `<name>-origin` CloudFront origin id. Set `disable_lambda_association = true` on any
+  cache behavior that targets a custom origin if `lambda_edge.enabled = true`.
 
 ---
 

@@ -30,17 +30,18 @@ privados (via OAC) e um pipeline completo de **CI/CD no GitHub Actions** que aut
 4. [As três modalidades de deploy](#as-três-modalidades-de-deploy)
 5. [Arquitetura](#arquitetura)
 6. [Modos de acesso ao bucket: público (website) vs privado (OAC)](#modos-de-acesso-ao-bucket-público-website-vs-privado-oac)
-7. [GitHub Actions + OIDC (CI/CD sem chaves)](#github-actions--oidc-cicd-sem-chaves)
-8. [Estrutura do repositório](#estrutura-do-repositório)
-9. [Pré-requisitos](#pré-requisitos)
-10. [Primeiros passos](#primeiros-passos)
-11. [Exemplos de configuração (`tfvars`)](#exemplos-de-configuração-tfvars)
-12. [Operação do dia a dia: deploy, rollback, restore](#operação-do-dia-a-dia-deploy-rollback-restore)
-13. [Referência de variáveis](#referência-de-variáveis)
-14. [Outputs](#outputs)
-15. [Convenções, restrições e armadilhas](#convenções-restrições-e-armadilhas)
-16. [Casos de uso](#casos-de-uso)
-17. [Sugestões de melhoria / roadmap](#sugestões-de-melhoria--roadmap)
+7. [Custom origins (origens fora do S3)](#custom-origins-origens-fora-do-s3)
+8. [GitHub Actions + OIDC (CI/CD sem chaves)](#github-actions--oidc-cicd-sem-chaves)
+9. [Estrutura do repositório](#estrutura-do-repositório)
+10. [Pré-requisitos](#pré-requisitos)
+11. [Primeiros passos](#primeiros-passos)
+12. [Exemplos de configuração (`tfvars`)](#exemplos-de-configuração-tfvars)
+13. [Operação do dia a dia: deploy, rollback, restore](#operação-do-dia-a-dia-deploy-rollback-restore)
+14. [Referência de variáveis](#referência-de-variáveis)
+15. [Outputs](#outputs)
+16. [Convenções, restrições e armadilhas](#convenções-restrições-e-armadilhas)
+17. [Casos de uso](#casos-de-uso)
+18. [Sugestões de melhoria / roadmap](#sugestões-de-melhoria--roadmap)
 
 ---
 
@@ -243,6 +244,71 @@ garantem que o modo da Lambda bata com o modo de acesso dos buckets.
 
 ---
 
+## Custom origins (origens fora do S3)
+
+`var.custom_origins` permite o CloudFront rotear pra qualquer backend HTTP(S) — um ALB, API
+Gateway ou API externa — junto com o(s) bucket(s) S3. Cada item vira um `custom_origin_config`
+simples no CloudFront, usando a mesma convenção de id `"<name>-origin"` dos buckets, então
+já compõe direto com `cloudfront.ordered_cache_behaviors[*].optional_target_origin_id` (ou até
+`cloudfront.default_cache_behavior.target_origin_id`, se a distribuição inteira for atendida
+pela custom origin em vez do S3):
+
+```hcl
+custom_origins = [
+  {
+    name                   = "internal-api"
+    domain_name            = "internal-alb-123456.us-east-1.elb.amazonaws.com"
+    origin_protocol_policy = "https-only"                # "http-only" | "https-only" | "match-viewer"
+    custom_headers = [
+      { name = "Authorization", value = "Bearer <token>" } # estático por distribuição, não por viewer
+    ]
+  }
+]
+
+cloudfront = {
+  ordered_cache_behaviors = [
+    {
+      path_pattern               = "/api/*"
+      optional_target_origin_id  = "internal-api-origin"  # "<custom_origins[*].name>-origin"
+      disable_lambda_association = true
+      forwarded_values = {
+        query_string = true
+        headers       = ["Authorization"]                 # encaminha esse header pro backend
+        cookies       = { forward = "none" }
+      }
+      ...
+    }
+  ]
+}
+```
+
+**Campos por custom origin (`custom_origins[*]`):**
+
+| Campo | Default | Notas |
+|---|---|---|
+| `name` | — | Precisa ser único entre `custom_origins` e não pode colidir com nenhum `buckets[*].name` (os dois montam o mesmo id `<name>-origin`; validado por uma precondition). |
+| `domain_name` | — | DNS do backend (ALB, domínio custom de API Gateway, host externo, etc). |
+| `origin_path` | `null` | Prefixo de path opcional, anexado ao domínio quando o CloudFront encaminha a requisição. |
+| `http_port` / `https_port` | `80` / `443` | |
+| `origin_protocol_policy` | `"https-only"` | `"http-only"`, `"https-only"` ou `"match-viewer"`. |
+| `origin_ssl_protocols` | `["TLSv1.2"]` | |
+| `custom_headers` | `[]` | Lista de `{ name, value }` enviada pelo CloudFront em toda requisição pra essa origem (ex: uma API key compartilhada). Não substitui autenticação por viewer. |
+
+**Lambda@Edge e custom origins não se misturam.** A Lambda de rollback só sabe reescrever
+requisições pra os buckets S3 main/rollback — não tem noção de custom origins. Qualquer
+`default_cache_behavior` ou item de `ordered_cache_behaviors[*]` que aponte pra uma custom
+origin deve setar `disable_lambda_association = true` (default `false`, então configs S3-only
+existentes não são afetadas) quando `lambda_edge.enabled = true` em outro lugar da stack.
+
+`forwarded_values.headers` (default `[]`, tanto em `default_cache_behavior` quanto em
+`ordered_cache_behaviors[*]`) encaminha os headers do viewer listados pra origem — útil pra
+`Authorization` ou similar numa rota de API. Usa o mesmo schema legado `forwarded_values` já
+usado em todo o módulo (não as APIs mais novas de cache-policy/origin-request-policy) por
+consistência; qualquer header encaminhado entra na cache key, a menos que o TTL da behavior
+fique em `0`.
+
+---
+
 ## GitHub Actions + OIDC (CI/CD sem chaves)
 
 O módulo `gha_gen_workflows` monta toda a camada de CI/CD **sem nenhuma credencial estática**:
@@ -273,10 +339,10 @@ Todo workflow gerado se autentica com `aws-actions/configure-aws-credentials@v4`
 .
 ├── main.tf                 # Terraform + providers AWS/random, default tags
 ├── variables.tf            # Variáveis de entrada raiz (+ validações & preconditions)
-├── locals.tf               # Classificação dos buckets (main/rollback/versions, oac/website)
+├── locals.tf               # Classificação dos buckets (main/rollback/versions, oac/website, mapa custom_origins)
 ├── data.tf                 # aws_caller_identity
 ├── s3.tf                   # Buckets, policies, public-access blocks, bucket de logs
-├── cloudfront.tf           # OAC + distribuição CloudFront (origens, behaviors, assoc. da Lambda)
+├── cloudfront.tf           # OAC + distribuição CloudFront (origens S3 + custom, behaviors, assoc. da Lambda)
 ├── lambda_edge.tf          # Empacotamento da Lambda@Edge, role/policy IAM, parâmetro SSM
 ├── acm.tf                  # Certificado ACM + registros de validação DNS
 ├── route53.tf              # Registros alias A do Route 53 para a distribuição
@@ -602,7 +668,8 @@ e invalida o cache.
 |---|---|---|---|
 | `region` | `string` | — | Região AWS. Use `us-east-1` (veja armadilhas). |
 | `buckets` | `list(object)` | — | Buckets a criar. Por bucket: `name`, `main_bucket` (obrigatórios); `versions_bucket`, `website`, `origin_access_control`, `versioning`, `force_destroy`, `index_document`, `error_document` (opcionais). Validação: `website` e `origin_access_control` devem ser diferentes. |
-| `cloudfront` | `object` | — | Configuração completa do CloudFront: `enabled`, `default_root_object`, `aliases`, `default_cache_behavior`, `ordered_cache_behaviors`, `custom_error_response`, `restrictions`, `viewer_certificate`, `logging_config`, `price_class`, `http_version`, `web_acl_id`, etc. |
+| `custom_origins` | `list(object)` | `[]` | Origens HTTP(S) fora do S3 (ALB, API Gateway, APIs externas). Por origem: `name`, `domain_name` (obrigatórios); `origin_path`, `http_port`, `https_port`, `origin_protocol_policy`, `origin_ssl_protocols`, `custom_headers` (opcionais). Veja [Custom origins](#custom-origins-origens-fora-do-s3). |
+| `cloudfront` | `object` | — | Configuração completa do CloudFront: `enabled`, `default_root_object`, `aliases`, `default_cache_behavior`, `ordered_cache_behaviors`, `custom_error_response`, `restrictions`, `viewer_certificate`, `logging_config`, `price_class`, `http_version`, `web_acl_id`, etc. Tanto `default_cache_behavior` quanto cada item de `ordered_cache_behaviors[*]` também aceitam `disable_lambda_association` (padrão `false`) e `forwarded_values.headers` (padrão `[]`). |
 | `lambda_edge` | `object` | `enabled=false` | Lambda do blue/green: `enabled`, `cf_access_bucket_mode` (`"oac"`/`"s3_website"`), `function_name`, `parameter_store_name` (padrão `/Lambda/CF/Rollback`), `handler`, `runtime` (padrão `nodejs20.x`), `associations` (padrão `origin-request`). |
 | `route53` | `object` | `enabled=false` | `enabled`, `domain`, `private_zone`. Quando habilitado, `domain` é obrigatório. |
 | `acm` | `object` | `create=true` | `create`, `wildcard`, `validation_method`. Deve ser o inverso de `cloudfront.viewer_certificate.cloudfront_default_certificate`. |
@@ -620,6 +687,8 @@ e invalida o cache.
 | `versioning` | `false` | Habilita versionamento de objetos S3. |
 | `force_destroy` | `false` | Permite ao Terraform deletar um bucket não vazio. |
 | `index_document` / `error_document` | `index.html` / `error.html` | Documentos do website (modo website). |
+
+**Campos por custom origin (`custom_origins[*]`):** veja [Custom origins](#custom-origins-origens-fora-do-s3).
 
 ### Módulo `gha_gen_workflows`
 
@@ -681,6 +750,10 @@ e invalida o cache.
   pelos outputs/state, não tente adivinhar.
 - **`force_destroy`** é o que permite ao Terraform destruir buckets não vazios — ótimo para
   demos, mais arriscado em produção.
+- **`custom_origins[*].name` não pode colidir com `buckets[*].name`.** Os dois montam o mesmo
+  id `<name>-origin` no CloudFront (garantido por uma precondition). Defina
+  `disable_lambda_association = true` em qualquer behavior que aponte pra uma custom origin
+  quando `lambda_edge.enabled = true` — veja [Custom origins](#custom-origins-origens-fora-do-s3).
 
 ---
 

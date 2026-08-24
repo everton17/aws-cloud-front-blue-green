@@ -45,6 +45,31 @@ resource "aws_cloudfront_distribution" "this" {
     }
   }
 
+  # Custom (non-S3) origins, e.g. an ALB, API Gateway or any HTTP(S) backend.
+  dynamic "origin" {
+    for_each = local.custom_origins
+    content {
+      domain_name = origin.value.domain_name
+      origin_id   = "${origin.value.name}-origin"
+      origin_path = origin.value.origin_path
+
+      custom_origin_config {
+        http_port              = origin.value.http_port
+        https_port             = origin.value.https_port
+        origin_protocol_policy = origin.value.origin_protocol_policy
+        origin_ssl_protocols   = origin.value.origin_ssl_protocols
+      }
+
+      dynamic "custom_header" {
+        for_each = origin.value.custom_headers
+        content {
+          name  = custom_header.value.name
+          value = custom_header.value.value
+        }
+      }
+    }
+  }
+
   default_cache_behavior {
     allowed_methods  = var.cloudfront.default_cache_behavior.allowed_methods
     cached_methods   = var.cloudfront.default_cache_behavior.cached_methods
@@ -52,6 +77,7 @@ resource "aws_cloudfront_distribution" "this" {
 
     forwarded_values {
       query_string = var.cloudfront.default_cache_behavior.forwarded_values.query_string
+      headers      = var.cloudfront.default_cache_behavior.forwarded_values.headers
 
       cookies {
         forward = var.cloudfront.default_cache_behavior.forwarded_values.cookies.forward
@@ -60,7 +86,7 @@ resource "aws_cloudfront_distribution" "this" {
 
     # Lambda@Edge association to Origin Request
     dynamic "lambda_function_association" {
-      for_each = var.lambda_edge.enabled ? var.lambda_edge.associations : []
+      for_each = (var.lambda_edge.enabled && !var.cloudfront.default_cache_behavior.disable_lambda_association) ? var.lambda_edge.associations : []
 
       content {
         event_type   = lambda_function_association.value.event_type
@@ -85,6 +111,7 @@ resource "aws_cloudfront_distribution" "this" {
 
       forwarded_values {
         query_string = ordered_cache_behavior.value.forwarded_values.query_string
+        headers      = ordered_cache_behavior.value.forwarded_values.headers
 
         cookies {
           forward = ordered_cache_behavior.value.forwarded_values.cookies.forward
@@ -93,7 +120,7 @@ resource "aws_cloudfront_distribution" "this" {
 
       # Lambda@Edge association to Origin Request
       dynamic "lambda_function_association" {
-        for_each = var.lambda_edge.enabled ? var.lambda_edge.associations : []
+        for_each = (var.lambda_edge.enabled && !ordered_cache_behavior.value.disable_lambda_association) ? var.lambda_edge.associations : []
 
         content {
           event_type   = lambda_function_association.value.event_type

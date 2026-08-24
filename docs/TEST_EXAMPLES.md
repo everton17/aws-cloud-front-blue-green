@@ -13,6 +13,7 @@ This document shows all possible configurations for the CloudFront Blue-Green st
 | **Simple** | 1.1, 1.2, 1.3 | Static site, no rollback needed |
 | **Blue-Green Rollback** | 2.1, 2.2, 2.3 | Need instant rollback capability |
 | **Versioning** | 3.1, 3.2, 3.3 | Need to restore any historical version |
+| **Custom Origin** | 4.1 | Static site + non-S3 backend (ALB, API Gateway, external API) on a path pattern |
 
 ---
 
@@ -388,6 +389,63 @@ acm = {
 
 ---
 
+## 🟠 SCENARIO 4: Custom Origin (Non-S3 Backend)
+
+Best for: A static site that also needs to route some paths (e.g. `/api/*`) to an existing
+HTTP(S) backend — an ALB, API Gateway, or any external API — instead of S3.
+
+### Test 4.1: Custom Origin Base
+**File:** `terraform-custom-origin-demo.tfvars` (root of the repo)
+
+```hcl
+custom_origins = [
+  {
+    name                   = "httpbin-api"
+    domain_name            = "httpbin.org"   # swap for your ALB/API Gateway domain
+    origin_protocol_policy = "https-only"
+    # custom_headers = [{ name = "Authorization", value = "Bearer <token>" }]
+  }
+]
+
+cloudfront = {
+  # ... default_cache_behavior serves S3 as usual
+  ordered_cache_behaviors = [{
+    path_pattern               = "/api/*"
+    optional_target_origin_id  = "httpbin-api-origin"  # "<custom_origins[*].name>-origin"
+    disable_lambda_association = true                   # skip the S3 rollback Lambda for this path
+    forwarded_values = {
+      query_string = true
+      headers      = ["Accept"]                          # forward extra headers to the backend
+      cookies      = { forward = "none" }
+    }
+  }]
+}
+```
+
+**What you get:**
+- ✅ CloudFront distribution with 2 origins: S3 (default) + one custom HTTP(S) origin
+- ✅ `/api/*` routed to the custom origin, everything else served from S3
+- ✅ Optional header forwarding (`forwarded_values.headers`) and custom request headers per origin (`custom_headers`)
+
+**Combining with rollback (Scenario 2/3):** if `lambda_edge.enabled = true` elsewhere in your
+stack, set `disable_lambda_association = true` on every behavior that targets a custom
+origin — the rollback Lambda only knows how to rewrite requests to the S3 main/rollback
+buckets, so leaving it attached to a custom-origin behavior is unnecessary and confusing (it
+still forwards the request, but the Lambda's SSM/rollback logic has no effect on it, and
+overrides the `Host` header to a value the backend probably doesn't expect).
+
+**Gotcha:** `custom_origins[*].name` must not collide with any `buckets[*].name` — both build
+the same `"<name>-origin"` CloudFront origin id (enforced by a Terraform precondition).
+
+**Deploy:**
+```bash
+terraform plan -var-file=terraform-custom-origin-demo.tfvars
+terraform apply -var-file=terraform-custom-origin-demo.tfvars
+curl https://<distribution-domain>/api/get   # hits httpbin.org, not S3
+```
+
+---
+
 ## 🎯 Decision Matrix
 
 Choose your scenario:
@@ -518,6 +576,10 @@ A: Yes, but change `origin_access_control = false` and `website = true`. Require
 
 **Q: How long does Lambda@Edge take to deploy?**
 A: 5-10 minutes for global replication. This is normal.
+
+**Q: Can I route a path to a backend that isn't S3 (an API, ALB, etc.)?**
+A: Yes — see Scenario 4 (`custom_origins` + `ordered_cache_behaviors`). Remember to set
+`disable_lambda_association = true` on that behavior if `lambda_edge.enabled = true`.
 
 ---
 

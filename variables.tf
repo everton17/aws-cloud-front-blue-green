@@ -30,6 +30,37 @@ variable "buckets" {
   }
 }
 
+variable "custom_origins" {
+  description = "Arbitrary HTTP(S) origins (ALB, API Gateway, external APIs, etc.) that CloudFront can route to, in addition to the S3 buckets in var.buckets."
+  type = list(object({
+    name                   = string
+    domain_name            = string
+    origin_path            = optional(string, null)
+    http_port              = optional(number, 80)
+    https_port             = optional(number, 443)
+    origin_protocol_policy = optional(string, "https-only")
+    origin_ssl_protocols   = optional(list(string), ["TLSv1.2"])
+    custom_headers = optional(list(object({
+      name  = string
+      value = string
+    })), [])
+  }))
+  default = []
+
+  validation {
+    condition = alltrue([
+      for o in var.custom_origins :
+      contains(["http-only", "https-only", "match-viewer"], o.origin_protocol_policy)
+    ])
+    error_message = "'custom_origins[*].origin_protocol_policy' must be 'http-only', 'https-only' or 'match-viewer'."
+  }
+
+  validation {
+    condition     = length(var.custom_origins) == length(distinct([for o in var.custom_origins : o.name]))
+    error_message = "'custom_origins[*].name' values must be unique."
+  }
+}
+
 variable "cloudfront" {
   type = object({
     enabled             = bool
@@ -51,11 +82,13 @@ variable "cloudfront" {
     }))
 
     default_cache_behavior = object({
-      allowed_methods  = list(string)
-      cached_methods   = list(string)
-      target_origin_id = optional(string)
+      allowed_methods            = list(string)
+      cached_methods             = list(string)
+      target_origin_id           = optional(string)
+      disable_lambda_association = optional(bool, false)
       forwarded_values = object({
         query_string = bool
+        headers      = optional(list(string), [])
         cookies = object({
           forward = string
         })
@@ -67,12 +100,14 @@ variable "cloudfront" {
     })
 
     ordered_cache_behaviors = optional(list(object({
-      path_pattern              = string
-      allowed_methods           = list(string)
-      cached_methods            = list(string)
-      optional_target_origin_id = optional(string)
+      path_pattern               = string
+      allowed_methods            = list(string)
+      cached_methods             = list(string)
+      optional_target_origin_id  = optional(string)
+      disable_lambda_association = optional(bool, false)
       forwarded_values = object({
         query_string = bool
+        headers      = optional(list(string), [])
         cookies = object({
           forward = string
         })
@@ -197,6 +232,18 @@ resource "terraform_data" "validate_lambda_edge_bucket_access_mode" {
         if !b.versions_bucket && b.origin_access_control
       ])
       error_message = "when 'var.buckets.origin_access_control' is true, 'var.lambda_edge.cf_access_bucket_mode' needs to be 'oac'."
+    }
+  }
+}
+
+resource "terraform_data" "validate_custom_origin_name_collision" {
+  lifecycle {
+    precondition {
+      condition = length(setintersection(
+        toset([for b in var.buckets : b.name]),
+        toset([for o in var.custom_origins : o.name])
+      )) == 0
+      error_message = "var.custom_origins[*].name must not collide with var.buckets[*].name (both build the '<name>-origin' CloudFront origin id)."
     }
   }
 }
